@@ -174,7 +174,7 @@ begin
   FWorkbook := TsWorkbook.Create;
 
   FWorkbook.Options := FWorkbook.Options + [boReadFormulas];
-  FWorkbook.ReadFromFile(Filename, sfOpenDocument);
+  FWorkbook.ReadFromFile(Filename);
   FWorkbook.Options := FWorkbook.Options + [boAutoCalc];
 
   FWorksheet := FWorkbook.GetFirstWorksheet;
