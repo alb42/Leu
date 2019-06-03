@@ -18,21 +18,100 @@ type
     FShowHeaders: Boolean;
     FHeaderCount: Integer;
     FShowFormulas: Boolean;
+    FFilename: string;
+    FMinCols: Integer;
+    FMinRows: Integer;
     function GetCellText(ACol, ARow: Integer; ATrim: Boolean = true): String;
     procedure SetCellValue(ACol, ARow: Integer; AValue: Variant);
+    function GetWorksheetCount: Integer;
+    function GetWorksheetIdx: Integer;
   protected
     function GetCell(ACol, ARow: Integer): string; override;
     procedure SetCell(ACol, ARow: Integer; AValue: string); override;
+    function GetCellBorderStyle(ACol, ARow: Integer; ABorder: TsCellBorder): TsCellBorderStyle;
+    function HasBorder(ACell: PCell; ABorder: TsCellBorder): Boolean;
+    function GetBorderStyle(ACol, ARow, ADeltaCol, ADeltaRow: Integer; ACell: PCell; out ABorderStyle: TsCellBorderStyle): Boolean;
+    procedure DrawCellBorders(RP: PRastPort; ACol, ARow: Integer; ARect: TRect; ACell: PCell);
     procedure DoDrawCell(Sender: TObject; ACol, ARow: Integer; RP: PRastPort; ARect: TRect); override;
     function CalcColWidthFromSheet(AWidth: Single): Integer;
   public
-    procedure LoadFile(FileName: string);
+    constructor Create; override;
+    destructor Destroy; override;
+
+    procedure NewWorkbook(ANumCols: Integer = 20; ANumRows: Integer = 40);
+    procedure LoadFile(AFileName: string);
+    procedure SaveFile(AFileName: string);
+    procedure LoadWorksheet(Idx: Integer);
 
     property ShowHeaders: Boolean read FShowHeaders write FShowHeaders;
     property Worksheet: TsWorksheet read FWorksheet;
+
+    property WorksheetCount: Integer read GetWorksheetCount;
+    property WorksheetIdx: Integer read GetWorksheetIdx;
+    property Filename: string read FFilename;
+    property MinCols: Integer read FMinCols write FMinCols;
+    property MinRows: Integer read FMinRows write FMinRows;
   end;
 
 implementation
+
+constructor TOfficeGrid.Create;
+begin
+  inherited;
+  CycleChain := 1;
+  FMinCols := 10;
+  FMinRows := 20;
+  FShowHeaders := True;
+  FHeaderCount := 1;
+  FFilename := '';
+  FWorkbook := TsWorkbook.Create;
+  FWorkbook.Options := FWorkbook.Options + [boAutoCalc];
+  FWorksheet := FWorkbook.AddWorksheet('My Worksheet');
+  NewWorkbook;
+end;
+
+
+destructor TOfficeGrid.Destroy;
+begin
+  FWorkbook.Free;
+  inherited;
+end;
+
+procedure TOfficeGrid.NewWorkbook(ANumCols: Integer = 20; ANumRows: Integer = 40);
+begin
+  InitChange;
+  BeginUpdate;
+  BlockRecalcSize := True;
+  NumRows := 0;
+  NumCols := 0;
+  FWorkbook.Free;
+  FFilename := '';
+  FWorkbook := TsWorkbook.Create;
+  FWorkbook.Options := FWorkbook.Options + [boAutoCalc];
+  FWorksheet := FWorkbook.AddWorksheet('My Worksheet');
+  AllToRedraw := True;
+  BlockRecalcSize := False;
+  NumRows := ANumRows;
+  NumCols := ANumCols;
+  RecalcSize;
+  EndUpdate;
+  ExitChange;
+end;
+
+function TOfficeGrid.GetWorksheetCount: Integer;
+begin
+  Result := 0;
+  if Assigned(FWorkbook) then
+    Result := FWorkbook.GetWorksheetCount;
+end;
+
+function TOfficeGrid.GetWorksheetIdx: Integer;
+begin
+  Result := -1;
+  if Assigned(FWorkbook) then
+    Result := FWorkbook.GetWorksheetIndex(FWorksheet);
+end;
+
 
 function TOfficeGrid.GetCellText(ACol, ARow: Integer; ATrim: Boolean = true): String;
 var
@@ -159,34 +238,34 @@ begin
   Result := PtsToPx(w_pts, 72);
 end;
 
-procedure TOfficeGrid.LoadFile(FileName: string);
+procedure TOfficeGrid.LoadWorksheet(Idx: Integer);
 var
   cell: PCell;
   MaxC, MaxR: Integer;
   lCol: PCol;
-  i, w: Integer;       // Col width at current zoom level
-  w100: Integer;    // Col width at 100% zoom level
+  i, w: Integer;
+  w100: Integer;
 begin
-  FShowHeaders := True;
-  FHeaderCount := 1;
-  if Assigned(FWorkbook) then
-    FWorkBook.Free;
-  FWorkbook := TsWorkbook.Create;
-
-  FWorkbook.Options := FWorkbook.Options + [boReadFormulas];
-  FWorkbook.ReadFromFile(Filename);
-  FWorkbook.Options := FWorkbook.Options + [boAutoCalc];
-
-  FWorksheet := FWorkbook.GetFirstWorksheet;
-
-  MaxR := 2;
-  MaxC := 2;
+  if Idx < 0 then
+    FWorksheet := FWorkbook.GetFirstWorksheet
+  else
+  if Idx >= WorksheetCount then
+    FWorksheet := FWorkbook.GetLastWorksheet
+  else
+    FWorksheet := FWorkbook.GetWorksheetByIndex(Idx);
+  if not Assigned(FWorksheet) then
+    Exit;
+  MaxR := FMinRows;
+  MaxC := FMinCols;
   for Cell in FWorksheet.Cells do
   begin
     MaxR := Max(Cell^.Row, MaxR);
     MaxC := Max(Cell^.Col, MaxC);
   end;
+
   BeginUpdate;
+  BlockRecalcSize := True;
+  try
   NumRows := MaxR + 2;
   NumCols := MaxC + 2;
 
@@ -204,7 +283,34 @@ begin
     end;
     CellWidth[i] := w;
   end;
-  EndUpdate;
+  finally
+    BlockRecalcSize := False;
+    RecalcSize;
+    EndUpdate;
+  end;
+end;
+
+procedure TOfficeGrid.LoadFile(AFileName: string);
+begin
+  FFilename := '';
+  FWorkBook.Free;
+  FWorksheet := nil;
+
+  FWorkbook := TsWorkbook.Create;
+  FWorkbook.Options := FWorkbook.Options + [boReadFormulas, boAutoCalc];
+  FWorkbook.ReadFromFile(AFilename);
+  LoadWorksheet(-1); // load first Worksheet
+  FFilename := AFilename;
+end;
+
+procedure TOfficeGrid.SaveFile(AFileName: string);
+begin
+  if AFileName <> '' then
+    FFileName := AFilename;
+  if FFilename = '' then
+    Exit;
+  FWorkbook.WriteToFile(FFileName, True);
+
 end;
 
 
@@ -224,13 +330,255 @@ begin
   inherited;
 end;
 
+function TOfficeGrid.GetCellBorderStyle(ACol, ARow: Integer;
+  ABorder: TsCellBorder): TsCellBorderStyle;
+var
+  cell: PCell;
+begin
+  Result := DEFAULT_BORDERSTYLES[ABorder];
+  if Assigned(Worksheet) then
+  begin
+    cell := Worksheet.FindCell(ARow - FHeaderCount, ACol);
+    if Worksheet.IsMerged(cell) then
+      cell := Worksheet.FindMergeBase(cell);
+    Result := Worksheet.ReadCellBorderStyle(cell, ABorder);
+  end;
+end;
+
+function TOfficeGrid.HasBorder(ACell: PCell; ABorder: TsCellBorder): Boolean;
+var
+  base: PCell;
+  r1, c1, r2, c2: Cardinal;
+begin
+  if Worksheet = nil then
+    result := false
+  else
+  if Worksheet.IsMerged(ACell) then
+  begin
+    Worksheet.FindMergedRange(ACell, r1, c1, r2, c2);
+    base := Worksheet.FindCell(r1, c1);
+    Result := ABorder in Worksheet.ReadCellBorders(base);
+    case ABorder of
+      cbNorth : if ACell^.Row > r1 then Result := false;
+      cbSouth : if ACell^.Row < r2 then Result := false;
+      cbEast  : if ACell^.Col < c2 then Result := false;
+      cbWest  : if ACell^.Col > c1 then Result := false;
+    end;
+  end else
+    Result := ABorder in Worksheet.ReadCellBorders(ACell);
+end;
+
+{@@ ----------------------------------------------------------------------------
+  Determines the style of the border between a cell and its neighbor given by
+  ADeltaCol and ADeltaRow (one of them must be 0, the other one can only be +/-1).
+  ACol and ARow are in grid units.
+  Result is FALSE if there is no border line.
+-------------------------------------------------------------------------------}
+function TOfficeGrid.GetBorderStyle(ACol, ARow, ADeltaCol, ADeltaRow: Integer;
+  ACell: PCell; out ABorderStyle: TsCellBorderStyle): Boolean;
+var
+  neighborcell: PCell;
+  border, neighborborder: TsCellBorder;
+  r, c: Cardinal;
+begin
+  Result := true;
+
+  if (ADeltaCol = -1) and (ADeltaRow = 0) then
+  begin
+    border := cbWest;
+    neighborborder := cbEast;
+  end else
+  if (ADeltaCol = +1) and (ADeltaRow = 0) then
+  begin
+    border := cbEast;
+    neighborborder := cbWest;
+  end else
+  if (ADeltaCol = 0) and (ADeltaRow = -1) then
+  begin
+    border := cbNorth;
+    neighborborder := cbSouth;
+  end else
+  if (ADeltaCol = 0) and (ADeltaRow = +1) then
+  begin
+    border := cbSouth;
+    neighborBorder := cbNorth;
+  end else
+    raise Exception.Create('[TsCustomWorksheetGrid] Incorrect col/row for GetBorderStyle.');
+
+  r := (ARow - FHeaderCount);
+  c := (ACol - FHeaderCount);
+  if (longint(r) + ADeltaRow < 0) or (longint(c) + ADeltaCol < 0) then
+    neighborcell := nil
+  else
+    neighborcell := Worksheet.FindCell(longint(r) + ADeltaRow, longint(c) + ADeltaCol);
+
+  // Only cell has border, but neighbor has not
+  if HasBorder(ACell, border) and not HasBorder(neighborCell, neighborBorder) then
+  begin
+    if Worksheet.InSameMergedRange(ACell, neighborcell) then
+      result := false
+    else
+      ABorderStyle := GetCellBorderStyle(ACol, ARow, border);
+  end
+  else
+  // Only neighbor has border, cell has not
+  if not HasBorder(ACell, border) and HasBorder(neighborCell, neighborBorder) then
+  begin
+    if Worksheet.InSameMergedRange(ACell, neighborcell) then
+      result := false
+    else
+      ABorderStyle := GetCellBorderStyle(ACol+ADeltaCol, ARow+ADeltaRow, neighborborder);
+  end
+  else
+  // Both cells have shared border -> use top or left border
+  if HasBorder(ACell, border) and HasBorder(neighborCell, neighborBorder) then
+  begin
+    if Worksheet.InSameMergedRange(ACell, neighborcell) then
+      result := false
+    else
+    if (border in [cbNorth, cbWest]) then
+      ABorderStyle := GetCellBorderStyle(ACol+ADeltaCol, ARow+ADeltaRow, neighborborder)
+    else
+      ABorderStyle := GetCellBorderStyle(ACol, ARow, border);
+  end else
+    Result := false;
+end;
+
+procedure TOfficeGrid.DrawCellBorders(RP: PRastPort; ACol, ARow: Integer; ARect: TRect; ACell: PCell);
+const
+  drawHor = 0;
+  drawVert = 1;
+  drawDiagUp = 2;
+  drawDiagDown = 3;
+
+  procedure DoLine(L, T, R, B: Integer);
+  begin
+    GFXMove(RP, L, T);
+    AGraphics.Draw(RP, R, B);
+  end;
+
+  procedure DrawBorderLine(ACoord: Integer; ARect: TRect; ADrawDirection: Byte;
+    ABorderStyle: TsCellBorderStyle);
+  var
+    deltax, deltay: Integer;
+    angle: Double;
+    //savedCosmetic: Boolean;
+  begin
+    if ABorderStyle.Color = scWhite then
+      SetAPen(RP, 2);
+    if ABorderStyle.Color = scBlack then
+      SetAPen(RP, 1);
+
+    case ABorderStyle.LineStyle of
+      lsThin, lsMedium, lsThick, lsDotted, lsDashed, lsDashDot, lsDashDotDot,
+      lsMediumDash, lsMediumDashDot, lsMediumDashDotDot, lsSlantDashDot, lsHair:
+        case ADrawDirection of
+          drawHor     : DoLine(ARect.Left, ACoord, ARect.Right, ACoord);
+          drawVert    : DoLine(ACoord, ARect.Top, ACoord, ARect.Bottom);
+          drawDiagUp  : DoLine(ARect.Left, ARect.Bottom, ARect.Right, ARect.Top);
+          drawDiagDown: DoLine(ARect.Left, ARect.Top, ARect.Right, ARect.Bottom);
+        end;
+      {
+      lsHair:
+        case ADrawDirection of
+          drawHor     : DrawHairLineHor(Canvas, ARect.Left, ARect.Right, ACoord);
+          drawVert    : DrawHairLineVert(Canvas, ACoord, ARect.Top, ARect.Bottom);
+          drawDiagUp  : ;
+          drawDiagDown: ;
+        end;
+      }
+      lsDouble:
+        case ADrawDirection of
+          drawHor:
+            begin
+              DoLine(ARect.Left, ACoord-1, ARect.Right, ACoord-1);
+              DoLine(ARect.Left, ACoord+1, ARect.Right, ACoord+1);
+              //Canvas.Pen.Color := Color;
+              DoLine(ARect.Left, ACoord, ARect.Right, ACoord);
+            end;
+          drawVert:
+            begin
+              DoLine(ACoord-1, ARect.Top, ACoord-1, ARect.Bottom);
+              DoLine(ACoord+1, ARect.Top, ACoord+1, ARect.Bottom);
+              //Canvas.Pen.Color := Color;
+              DoLine(ACoord, ARect.Top, ACoord, ARect.Bottom);
+            end;
+          drawDiagUp:
+            begin
+              if ARect.Right = ARect.Left then
+                angle := pi/2
+              else
+                angle := arctan((ARect.Bottom-ARect.Top) / (ARect.Right-ARect.Left));
+              deltax := Max(1, round(1.0 / sin(angle)));
+              deltay := Max(1, round(1.0 / cos(angle)));
+              DoLine(ARect.Left, ARect.Bottom-deltay-1, ARect.Right-deltax, ARect.Top-1);
+              DoLine(ARect.Left+deltax, ARect.Bottom-1, ARect.Right, ARect.Top+deltay-1);
+            end;
+          drawDiagDown:
+            begin
+              if ARect.Right = ARect.Left then
+                angle := pi/2
+              else
+                angle := arctan((ARect.Bottom-ARect.Top) / (ARect.Right-ARect.Left));
+              deltax := Max(1, round(1.0 / sin(angle)));
+              deltay := Max(1, round(1.0 / cos(angle)));
+              DoLine(ARect.Left, ARect.Top+deltay-1, ARect.Right-deltax, ARect.Bottom-1);
+              DoLine(ARect.Left+deltax, ARect.Top-1, ARect.Right, ARect.Bottom-deltay-1);
+            end;
+        end;
+    end;
+    //Canvas.Pen.Cosmetic := savedCosmetic;
+  end;
+
+var
+  bs: TsCellBorderStyle;
+  fmt: PsCellFormat;
+  idx: Integer;
+  r1, c1, r2, c2: Cardinal;
+begin
+  if Assigned(Worksheet) then begin
+    if Worksheet.IsMergeBase(ACell) then begin
+      Worksheet.FindMergedRange(ACell, r1, c1, r2, c2);
+      ARect := CellsToRect(c1 + FHeaderCount, r1 + FHeaderCount, c2 + FHeaderCount, r2 + FHeaderCount);
+    end;
+    // Left border
+    if GetBorderStyle(ACol, ARow, -1, 0, ACell, bs) then
+      DrawBorderLine(ARect.Left, ARect, drawVert, bs);
+    // Right border
+    if GetBorderStyle(ACol, ARow, +1, 0, ACell, bs) then
+      DrawBorderLine(ARect.Right, ARect, drawVert, bs);
+    // Top border
+    if GetBorderstyle(ACol, ARow, 0, -1, ACell, bs) then
+      DrawBorderLine(ARect.Top, ARect, drawHor, bs);
+    // Bottom border
+    if GetBorderStyle(ACol, ARow, 0, +1, ACell, bs) then
+      DrawBorderLine(ARect.Bottom, ARect, drawHor, bs);
+
+    if ACell <> nil then begin
+      idx := Worksheet.GetEffectiveCellFormatIndex(ACell);
+      fmt := FWorkbook.GetPointerToCellFormat(idx);
+      // Diagonal up
+      if cbDiagUp in fmt^.Border then begin
+        bs := fmt^.Borderstyles[cbDiagUp];
+        DrawBorderLine(0, ARect, drawDiagUp, bs);
+      end;
+      // Diagonal down
+      if cbDiagDown in fmt^.Border then begin
+        bs := fmt^.BorderStyles[cbDiagDown];
+        DrawborderLine(0, ARect, drawDiagDown, bs);
+      end;
+    end;
+  end;
+end;
+
+
 procedure TOfficeGrid.DoDrawCell(Sender: TObject; ACol, ARow: Integer; RP: PRastPort; ARect: TRect);
 var
   s: string;
   CS: TCellStatus;
   Color: TsColor;
   Cell: PCell;
-  Pen: LongInt;
+  BGPen, Pen: LongInt;
   SIdx, Idx: Integer;
   fmt: PsCellFormat;
   horAlign: TsHorAlignment;
@@ -239,20 +587,24 @@ var
   fnt: TsFont;
   fst: LongWord;
   NStyle: LongWord;
+  BGColor: TsColor;
 begin
   Pen := -1;
+  BGPen := -1;
   FShowFormulas := False;
   s := Cells[ACol, ARow];
   CS := CellStatus[ACol, ARow];
 
   fmt := nil;
-  Color := 0;
+  Color := scBlack; // Black as default text color
+  BGColor := scWhite; // White as default background color
   if (FWorkbook <> nil) and (FWorksheet <> nil) then
   begin
     cell := FWorksheet.FindCell(ARow - FixedRows, ACol - FixedCols);
     fnt :=FWorksheet.ReadCellFont(cell);
     Color := fnt.Color;
     idx := FWorksheet.GetEffectiveCellFormatIndex(Cell);
+    BGColor := Worksheet.ReadBackgroundColor(cell);
     fmt := FWorkbook.GetPointerToCellFormat(idx);
   end
   else
@@ -293,7 +645,7 @@ begin
         if (Length(numFmt.Sections) > 2) and (Cell^.NumberValue = 0) then
           sidx := 2;
         if (nfkHasColor in numFmt.Sections[sidx].Kind) then
-          Color := numFmt.Sections[sidx].Color and $00FFFFFF;
+          Color := numFmt.Sections[sidx].Color and scRGBMask;
       end;
     end;
   end;
@@ -301,7 +653,20 @@ begin
   if CS = csFixed then
   begin
     horAlign := haCenter;
-    Color := 0;
+    Color := scBlack;
+    BGColor := scWhite;
+  end;
+
+
+  if (BGColor <> scWhite) and ((BGColor and $FF000000) = 0) then
+  begin
+    BGColor := BGColor and scRGBMask;
+    {$ifdef ENDIAN_LITTLE}
+    BGPen := ObtainBestPenA(ViewPortAddress(IntuitionBase^.ActiveWindow)^.ColorMap, (BGColor and $ff) shl 24, (BGColor and $ff00) shl 16, (BGColor and $ff0000) shl 8, nil);
+    {$else}
+    BGPen := ObtainBestPenA(ViewPortAddress(IntuitionBase^.ActiveWindow)^.ColorMap, (BGColor and $ff0000) shl 8, (BGColor and $ff00) shl 16, (BGColor and $ff) shl 24, nil);
+    {$endif}
+    SetRast(RP, BGPen);
   end;
 
   SetDrMd(RP, JAM1);
@@ -343,6 +708,7 @@ begin
   GfxText(RP, PChar(s), Length(s));
   SetSoftStyle(RP, fst, 0);
 
+  DrawCellBorders(RP, ACol, ARow, ARect, Cell);
 
   if CS = csFocussed then
   begin
@@ -355,6 +721,8 @@ begin
   end;
   if Pen >= 0 then
     ReleasePen(ViewPortAddress(IntuitionBase^.ActiveWindow)^.ColorMap, Pen);
+  if BGPen >= 0 then
+    ReleasePen(ViewPortAddress(IntuitionBase^.ActiveWindow)^.ColorMap, BGPen);
 
   FShowFormulas := True;
 end;
