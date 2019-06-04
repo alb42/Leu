@@ -666,7 +666,8 @@ begin
     {$else}
     BGPen := ObtainBestPenA(ViewPortAddress(IntuitionBase^.ActiveWindow)^.ColorMap, (BGColor and $ff0000) shl 8, (BGColor and $ff00) shl 16, (BGColor and $ff) shl 24, nil);
     {$endif}
-    SetRast(RP, BGPen);
+    SetAPen(RP, BGPen);
+    RectFill(RP, ARect.Left, ARect.Top, ARect.Right, ARect.Bottom);
   end;
 
   SetDrMd(RP, JAM1);
@@ -706,7 +707,7 @@ begin
     SetSoftStyle(RP, fst, NStyle);
   end;
   GfxText(RP, PChar(s), Length(s));
-  SetSoftStyle(RP, fst, 0);
+  SetSoftStyle(RP, 0, fst);
 
   DrawCellBorders(RP, ACol, ARow, ARect, Cell);
 
