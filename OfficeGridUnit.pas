@@ -658,13 +658,13 @@ begin
   end;
 
 
-  if (BGColor <> scWhite) and ((BGColor and $FF000000) = 0) then
+  if (BGColor <> scWhite) and (((BGColor and $FF000000) = 0) or ((BGColor and $FF000000) = $FF000000)) then
   begin
     BGColor := BGColor and scRGBMask;
     {$ifdef ENDIAN_LITTLE}
-    BGPen := ObtainBestPenA(ViewPortAddress(IntuitionBase^.ActiveWindow)^.ColorMap, (BGColor and $ff) shl 24, (BGColor and $ff00) shl 16, (BGColor and $ff0000) shl 8, nil);
+    BGPen := ObtainBestPenA(IntuitionBase^.ActiveScreen^.ViewPort.ColorMap, (BGColor and $ff) shl 24, (BGColor and $ff00) shl 16, (BGColor and $ff0000) shl 8, nil);
     {$else}
-    BGPen := ObtainBestPenA(ViewPortAddress(IntuitionBase^.ActiveWindow)^.ColorMap, (BGColor and $ff0000) shl 8, (BGColor and $ff00) shl 16, (BGColor and $ff) shl 24, nil);
+    BGPen := ObtainBestPenA(IntuitionBase^.ActiveScreen^.ViewPort.ColorMap, (BGColor and $ff0000) shl 8, (BGColor and $ff00) shl 16, (BGColor and $ff) shl 24, nil);
     {$endif}
     SetAPen(RP, BGPen);
     RectFill(RP, ARect.Left, ARect.Top, ARect.Right, ARect.Bottom);
@@ -682,9 +682,9 @@ begin
     if Color <> 0 then
     begin
       {$ifdef ENDIAN_LITTLE}
-      Pen := ObtainBestPenA(ViewPortAddress(IntuitionBase^.ActiveWindow)^.ColorMap, (Color and $ff) shl 24, (Color and $ff00) shl 16, (color and $ff0000) shl 8, nil);
+      Pen := ObtainBestPenA(IntuitionBase^.ActiveScreen^.ViewPort.ColorMap, (Color and $ff) shl 24, (Color and $ff00) shl 16, (color and $ff0000) shl 8, nil);
       {$else}
-      Pen := ObtainBestPenA(ViewPortAddress(IntuitionBase^.ActiveWindow)^.ColorMap, (color and $ff0000) shl 8, (Color and $ff00) shl 16, (Color and $ff) shl 24, nil);
+      Pen := ObtainBestPenA(IntuitionBase^.ActiveScreen^.ViewPort.ColorMap, (color and $ff0000) shl 8, (Color and $ff00) shl 16, (Color and $ff) shl 24, nil);
       {$endif}
       SetAPen(RP, Pen);
     end

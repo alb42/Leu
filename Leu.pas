@@ -115,7 +115,7 @@ end;
 
 procedure TMyWindow.ListClick(Sender: TObject);
 begin
-  WColRow.Contents := GetColString(SG.Col) + IntToStr(SG.Row);
+  WColRow.Contents := GetColString(SG.Col - SG.FixedCols) + IntToStr(SG.Row);
   WText.Contents := SG.Cells[SG.Col, SG.Row]
 end;
 
@@ -286,7 +286,7 @@ begin
   end;
 
   MUIApp.Title := 'LEU';
-  MUIApp.Version := '$VER: LEU 0.1 (03.06.2019)';
+  MUIApp.Version := '$VER: LEU 0.03 (06.06.2019)';
   MUIApp.Copyright := 'CC0';
   MUIApp.Author := 'Marcus "ALB42" Sackrow';
   MUIApp.Description := 'Simple Spreadsheet.';
