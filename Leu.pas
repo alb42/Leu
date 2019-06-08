@@ -61,7 +61,7 @@ begin
   FD.MultiSelect := False;
   FD.SaveMode := False;
   FD.TitleText := 'Select Spreadsheet file to load';
-  FD.Pattern := '#?.(ods|xls|xlsx|csv)';
+  FD.Pattern := '#?.(ods|xls|xlsx|csv|tcd|html|wikitable_pipes|wikitable_wikimedia)';
   if FD.Execute then
   begin
     try
@@ -85,7 +85,7 @@ begin
   FD.MultiSelect := False;
   FD.SaveMode := True;
   FD.TitleText := 'Select file name to save';
-  FD.Pattern := '#?.(ods|xls|xlsx|csv)';
+  FD.Pattern := '#?.(ods|xls|xlsx|csv|html|wikitable_pipes|wikitable_wikimedia)';
   if FD.Execute then
   begin
     try
@@ -116,7 +116,7 @@ end;
 procedure TMyWindow.ListClick(Sender: TObject);
 begin
   WColRow.Contents := GetColString(SG.Col - SG.FixedCols) + IntToStr(SG.Row);
-  WText.Contents := SG.Cells[SG.Col, SG.Row]
+  WText.Contents := SG.Cells[SG.Col, SG.Row];
 end;
 
 function TMyWindow.LoadFile(AFileName: string): Boolean;
@@ -286,7 +286,7 @@ begin
   end;
 
   MUIApp.Title := 'LEU';
-  MUIApp.Version := '$VER: LEU 0.03 (06.06.2019)';
+  MUIApp.Version := '$VER: LEU 0.04 (08.06.2019)';
   MUIApp.Copyright := 'CC0';
   MUIApp.Author := 'Marcus "ALB42" Sackrow';
   MUIApp.Description := 'Simple Spreadsheet.';

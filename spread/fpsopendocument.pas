@@ -44,7 +44,7 @@ uses
  {$ENDIF}
   fpstypes, fpsReaderWriter, fpsutils, fpsHeaderFooterParser,
   fpsNumFormat, fpsxmlcommon, fpsPagelayout;
-  
+
 type
   TDateModeODS=(
     dmODS1899 {default for ODF; almost same as Excel 1900},

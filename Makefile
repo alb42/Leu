@@ -1,4 +1,4 @@
-FPCOPT=-O3 -XX -CX -Xs
+FPCOPT=-O- -XX -CX -Xs
 FPCFLAGS=-FUunits -Fu../MUIClass/src -Fuspread $(FPCOPT)
 
 all:
@@ -11,13 +11,13 @@ os4:
 	fpc4os4.sh $(FPCFLAGS) Leu.pas
 	
 mos: 
-	fpc4amiga.sh $(FPCFLAGS) Leu.pas
+	fpc4mos.sh $(FPCFLAGS) Leu.pas
 	
 arosarm:
 	fpc4arosarm.sh $(FPCFLAGS) Leu.pas
 	
 aros64: 
-	fpc4amiga.sh $(FPCFLAGS) Leu.pas
+	fpc4aros64.sh $(FPCFLAGS) Leu.pas
 	
 clean:
 	rm -f Leu units/* *.lha

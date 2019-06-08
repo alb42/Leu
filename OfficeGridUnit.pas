@@ -55,6 +55,9 @@ type
 
 implementation
 
+uses
+  TCDReaderUnit;
+
 constructor TOfficeGrid.Create;
 begin
   inherited;
@@ -161,6 +164,7 @@ begin
       end;
     end;
   end;
+  Result := UTF8ToAnsi(Result);
 end;
 
 procedure TOfficeGrid.SetCellValue(ACol, ARow: Integer; AValue: Variant);
@@ -298,7 +302,12 @@ begin
 
   FWorkbook := TsWorkbook.Create;
   FWorkbook.Options := FWorkbook.Options + [boReadFormulas, boAutoCalc];
-  FWorkbook.ReadFromFile(AFilename);
+  if LowerCase(ExtractFileExt(AFileName)) = '.tcd' then
+  begin
+    ReadTCD(FWorkbook, AFilename);
+  end
+  else
+    FWorkbook.ReadFromFile(AFilename);
   LoadWorksheet(-1); // load first Worksheet
   FFilename := AFilename;
 end;
@@ -326,7 +335,7 @@ begin
   if TryStrToFloat(AValue, f) then
     SetCellValue(ACol, ARow, f)
   else
-    SetCellValue(ACol, ARow, AValue);
+    SetCellValue(ACol, ARow, AnsiToUTF8(AValue));
   inherited;
 end;
 
@@ -661,31 +670,27 @@ begin
   if (BGColor <> scWhite) and (((BGColor and $FF000000) = 0) or ((BGColor and $FF000000) = $FF000000)) then
   begin
     BGColor := BGColor and scRGBMask;
-    {$ifdef ENDIAN_LITTLE}
     BGPen := ObtainBestPenA(IntuitionBase^.ActiveScreen^.ViewPort.ColorMap, (BGColor and $ff) shl 24, (BGColor and $ff00) shl 16, (BGColor and $ff0000) shl 8, nil);
-    {$else}
-    BGPen := ObtainBestPenA(IntuitionBase^.ActiveScreen^.ViewPort.ColorMap, (BGColor and $ff0000) shl 8, (BGColor and $ff00) shl 16, (BGColor and $ff) shl 24, nil);
-    {$endif}
     SetAPen(RP, BGPen);
     RectFill(RP, ARect.Left, ARect.Top, ARect.Right, ARect.Bottom);
   end;
 
   SetDrMd(RP, JAM1);
-  if (CS = csSelected) or (CS = csFocussed) then
+  if (CS = csSelected) then
   begin
     SetAPen(RP, 3);
     RectFill(RP, ARect.Left, ARect.Top, ARect.Right, ARect.Bottom);
+    SetAPen(RP, 0);
+    GfxMove(RP, ARect.Left, ARect.Bottom);
+    AGraphics.Draw(RP, ARect.Left, ARect.Top);
+    AGraphics.Draw(RP, ARect.Right, ARect.Top);
     SetAPen(RP, 2);
   end
   else
   begin
     if Color <> 0 then
     begin
-      {$ifdef ENDIAN_LITTLE}
       Pen := ObtainBestPenA(IntuitionBase^.ActiveScreen^.ViewPort.ColorMap, (Color and $ff) shl 24, (Color and $ff00) shl 16, (color and $ff0000) shl 8, nil);
-      {$else}
-      Pen := ObtainBestPenA(IntuitionBase^.ActiveScreen^.ViewPort.ColorMap, (color and $ff0000) shl 8, (Color and $ff00) shl 16, (Color and $ff) shl 24, nil);
-      {$endif}
       SetAPen(RP, Pen);
     end
     else
@@ -715,10 +720,17 @@ begin
   begin
     SetAPen(RP, 1);
     GfxMove(RP, ARect.Left + 1, ARect.Top + 1);
+    //
     AGraphics.Draw(RP, ARect.Right, ARect.Top + 1);
     AGraphics.Draw(RP, ARect.Right, ARect.Bottom);
     AGraphics.Draw(RP, ARect.Left + 1, ARect.Bottom);
     AGraphics.Draw(RP, ARect.Left + 1, ARect.Top + 1);
+    //
+    GfxMove(RP, ARect.Left + 2, ARect.Top + 2);
+    AGraphics.Draw(RP, ARect.Right - 1, ARect.Top + 2);
+    AGraphics.Draw(RP, ARect.Right - 1, ARect.Bottom - 1);
+    AGraphics.Draw(RP, ARect.Left + 2, ARect.Bottom - 1);
+    AGraphics.Draw(RP, ARect.Left + 2, ARect.Top + 2);
   end;
   if Pen >= 0 then
     ReleasePen(ViewPortAddress(IntuitionBase^.ActiveWindow)^.ColorMap, Pen);
