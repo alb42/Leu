@@ -213,22 +213,82 @@ const
 function TCDFunctionToStr(B: Byte): string;
 begin
   case b of
-    $11: Result := 'ACS';
-    $16: Result := 'SEL';
+    $01: Result := 'EXP';   // EXP
+    $02: Result := 'LN';    // LN
+    $03: Result := 'LOG10'; // LOG10
+    $04: Result := 'LOG';   // LG
+    $05: Result := 'Ln';    // LOG
+    $06: Result := 'SQRT'; // Quadrat
+    $07: Result := 'SUMSQ'; // Quadrat
+    $08: Result := 'FACT';
+    $09: Result := 'PI()';
+    $0A: Result := 'SINH';
+    $0B: Result := 'COSH';
+    $0C: Result := 'TANH';
+    $0D: Result := 'SIN';
+    $0E: Result := 'COS';
+    $0F: Result := 'TAN';
+    //
+    $10: Result := 'ASIN'; // ARCSIN
+    $11: Result := 'ACOS'; // ARCCOS
+    $12: Result := 'ATAN'; // ARCTAN
+    $13: Result := 'DEGREES'; // WINKEL
+    $14: Result := 'RADIANS'; // BOGEN
+    $15: Result := 'IF'; // WENN
+    $17: Result := 'MOD';
+    $18: Result := 'INT'; // GANZZAHL
     $1a: Result := 'ABS';
-    $25: Result := 'AVG';
-    $4a: Result := 'NUM'; // Anzahl
-    $4b: Result := 'MIN';
-    $4c: Result := 'MAX';
-    $4e: Result := 'SUM';
-    $84: Result := 'GCD';
-    $a0: Result := 'THR';
-    $a1: Result := 'TMN';
-    $a2: Result := 'TSC';
-    $3d: Result := 'YER';
-    $3e: Result := 'DAY';
-    $3f: Result := 'MON';
-    $7d: Result := 'VAR';
+    $1b: Result := 'SIGN';
+    $1c: Result := 'ROUND'; // RUNDEN
+    $1d: Result := 'NOT'; // NICHT
+    $1e: Result := 'RAND()'; // ZUFALLSZAHL
+    $1F: Result := 'TRUE'; // WAHR
+    //
+    $20: Result := 'FALSE'; // FALSCH
+    $21: Result := 'TEXT("",'; // TEXT
+    $22: Result := 'LEFT'; // LEFT
+    $23: Result := 'RIGHT'; // RIGHT
+    $24: Result := 'MID'; // Mitte
+    $25: Result := 'AVERAGE'; // MITTELWERT
+    $26: Result := 'CHAR'; // CHAR
+    $27: Result := 'LEN'; // LÄNGE
+    $28: Result := 'LOWER'; // KLEIN
+    $29: Result := 'PROPER'; // GROSS2 missing PROPER
+    $2A: Result := 'UPPER'; // GROSS
+    $2B: Result := 'CODE'; // CODE
+    $2D: Result := 'TRIM'; // TRIM
+    $2C: Result := 'REPT'; // REPT
+    $2E: Result := ''; // CLEAN missing CLEAN
+    $2F: Result := 'VALUE'; // WERT
+    //
+    $49: Result := 'COUNTA'; // ANZAHL2
+    $4A: Result := 'COUNT'; // ANZAHL
+    $4B: Result := 'MIN'; // MIN
+    $4C: Result := 'MAX'; // MAX
+    $4E: Result := 'SUM'; // SUMME
+    $4F: Result := 'PRODUCT'; // PRODUKT
+
+    //
+    $50: Result := 'MID'; // MITTE
+    $51: Result := 'AND'; // UND
+    $52: Result := 'OR'; // Oder
+    $53: Result := ''; // XOR
+    $55: Result := 'ISNUMBER'; // ISTZAHL
+    $56: Result := 'ISTEXT'; // ISTTEXT
+    $57: Result := ''; //   ISTDATUM  MISSING ISDATE
+    $58: Result := ''; //   ISTZEIT   MISSING ISTIME
+    $59: Result := 'ISBLANK'; // ISTLEER
+    //
+    $72: Result := ''; // INSTRING   missing INSTR
+    $73: Result := ''; // SPIEGELN   missing
+    $74: Result := 'SHIFTL'; // SHIFTL   missing ...
+    $75: Result := 'SHIFTR'; // SHIFTR   missing ...
+    $76: Result := ''; // KOMPRIMIEREN missing ...
+    $79: Result := ''; // HEX   missing DEC2HEX
+    $7B: Result := 'STDEV'; // STABW
+    $7D: Result := 'VAR'; // VARIANZ
+
+
     else Result := 'U' + HexStr(b, 2) + 'U';
   end;
 
@@ -283,6 +343,7 @@ var
   CellBorder: TsCellBorders;
   CellFontStyle: TsFontStyles;
   r,g,b: byte;
+  c: Char;
 begin
   SetLength(Colors, 0);
   SetLength(CellColors, 0);
@@ -483,27 +544,45 @@ begin
                         r1 := Row + R1;
                       if not ColAbs then
                         c1 := Col + C1;
-                      //writeln('    col: ', c1, ' Row: ', r1);
+                      //if (Col = 1) and (Row=17) then
+                      //  writeln('    col: ', c1, ' Row: ', r1);
                       Formula := Formula + GetColString(c1) + IntToStr(r1 + 1);
                      //write('  ', HexStr(Ord(TXT[i]), 2), ' ', txt[i],'     ');
                     end;
-                  $5:
+                  $5,$4:
                     begin
                       Inc(P2); Inc(i);
+                      //writeln('Funktion: ' + GetColString(Col) + IntToStr(Row) + ' -> $', HexStr(P2^, 2));
                       //writeln('    ' + TCDFunctionToStr(P2^));
                       Formula := Formula + TCDFunctionToStr(P2^);
+
                       Inc(P2); Inc(i);
                     end;
                   else
                   begin
-                    //writeln('    ', char(P2^) + ' ($' + HexStr(P2^, 2) +')');
-                    Formula := Formula + char(P2^);
+                    //if (Col = 1) and (Row=17) then
+                    //  writeln('    ', char(P2^) + ' ($' + HexStr(P2^, 2) +')');
+                    c := Char(P2^);
+                    if c = ';' then
+                      c := ',';
+                    Formula := Formula + c;
                     Inc(P2); Inc(i);
                   end;
                 end;
               end;
-              if (Formula <> '') and (Formula[1] = '=') then
-                WS.WriteFormula(row, col, Copy(Formula, 2, Length(Formula)), true);
+              //WS.WriteText(row, col, 'FKT: ' +  Formula);
+              try
+                //if (Col = 1) and (Row=17) then
+                //  writeln('Formula: ', Formula);
+                if (Formula <> '') and (Formula[1] = '=') then
+                  WS.WriteFormula(row, col, Copy(Formula, 2, Length(Formula)), false);
+              except
+                On E: Exception do
+                begin
+                  WS.Formulas.DeleteFormula(WCell^.Row, WCell^.Col);
+                  WS.WriteText(Row, Col, Copy(Formula, 2, Length(Formula)));
+                end;
+              end;
             end;
             //writeln();
             Inc(P, Len);

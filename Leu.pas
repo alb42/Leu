@@ -110,7 +110,6 @@ begin
   SG.Cells[SG.Col, SG.Row] := WText.Contents;
   SG.Row := SG.Row + 1;
   SG.SelectAll(False);
-  ActiveObject := WText;
 end;
 
 procedure TMyWindow.ListClick(Sender: TObject);
@@ -265,6 +264,8 @@ begin
   TMUIRectangle.Create.Parent := FootGroup;
 
   Title := 'LEU <> Columns:' + IntToStr(SG.NumCols) + ' Rows:' + IntToStr(SG.NumRows);
+
+  MenuNew(nil);
 end;
 
 procedure StartMe;

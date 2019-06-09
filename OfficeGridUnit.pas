@@ -8,6 +8,7 @@ uses
   Math,
   MUIClass.Base,
   MUIClass.Grid,
+  MUIClass.Dialog,
   fpstypes, fpspreadsheet, fpsallformats, fpsutils, fpsnumformat, variants;
 
 type
@@ -73,10 +74,6 @@ begin
   FMinRows := 20;
   FShowHeaders := True;
   FHeaderCount := 1;
-  FFilename := '';
-  FWorkbook := TsWorkbook.Create;
-  FWorkbook.Options := FWorkbook.Options + [boAutoCalc];
-  FWorksheet := FWorkbook.AddWorksheet('My Worksheet');
   NewWorkbook;
 end;
 
@@ -101,6 +98,7 @@ begin
   FWorksheet := FWorkbook.AddWorksheet('My Worksheet');
   AllToRedraw := True;
   BlockRecalcSize := False;
+  LoadWorksheet(-1); // load first Worksheet
   NumRows := ANumRows;
   NumCols := ANumCols;
   RecalcSize;
@@ -203,7 +201,22 @@ begin
   begin
     s := VarToStr(AValue);
     if (s <> '') and (s[1] = '=') then
-      Worksheet.WriteFormula(r, c, Copy(s, 2, Length(s)), true)
+    begin
+      try
+        Worksheet.WriteFormula(r, c, Copy(s, 2, Length(s)), true)
+      except
+        On E:Exception do
+        begin
+          Worksheet.Formulas.DeleteFormula(R, c);
+          ShowMessage('Error in Formula '#10 + e.Message);
+          if cell = nil then cell := Worksheet.GetCell(r, c);
+          try
+            Worksheet.WriteText(cell, s, []);
+          except
+          end;
+        end;
+      end;
+    end
     else
     begin
       if cell = nil then cell := Worksheet.GetCell(r, c);
@@ -212,7 +225,10 @@ begin
       else begin
         //HTMLToRichText(Workbook, Worksheet.ReadCellFont(cell), s, plain, rtParams);
         rtParams := [];
+        try
         Worksheet.WriteText(cell, s, rtParams);  // This will erase a non-formatted cell if s = ''
+        except
+        end;
       end;
     end;
   end else
@@ -667,7 +683,7 @@ end;
 
 procedure TOfficeGrid.DoDrawCell(Sender: TObject; ACol, ARow: Integer; RP: PRastPort; ARect: TRect);
 var
-  s: string;
+  s,s1: string;
   CS: TCellStatus;
   Color: TsColor;
   Cell: PCell;
@@ -681,6 +697,7 @@ var
   fst: LongWord;
   NStyle: LongWord;
   BGColor: TsColor;
+  f: Double;
 begin
   Pen := -1;
   BGPen := -1;
@@ -689,7 +706,16 @@ begin
   if EditMode and (CS = csFocussed) then
     s := EditText
   else
+  begin
     s := Cells[ACol, ARow];
+    if (Length(s) > 0) and (Ord(s[1]) = 39) then
+    begin
+      s1 := s;
+      Delete(s1, 1,1);
+      if TryStrToFloat(s1, f) then
+        s := s1;
+    end;
+  end;
 
   fmt := nil;
   Color := scBlack; // Black as default text color
