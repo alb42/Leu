@@ -28,12 +28,19 @@ type
   protected
     function GetCell(ACol, ARow: Integer): string; override;
     procedure SetCell(ACol, ARow: Integer; AValue: string); override;
+    //
+    function GetCellWidth(ACol: Integer): Integer; override;
+    procedure SetCellWidth(ACol: Integer; AWidth: Integer); override;
+    function GetCellHeight(ARow: Integer): Integer; override;
+    procedure SetCellHeight(ARow: Integer; AHeight: Integer); override;
+    //
     function GetCellBorderStyle(ACol, ARow: Integer; ABorder: TsCellBorder): TsCellBorderStyle;
     function HasBorder(ACell: PCell; ABorder: TsCellBorder): Boolean;
     function GetBorderStyle(ACol, ARow, ADeltaCol, ADeltaRow: Integer; ACell: PCell; out ABorderStyle: TsCellBorderStyle): Boolean;
     procedure DrawCellBorders(RP: PRastPort; ACol, ARow: Integer; ARect: TRect; ACell: PCell);
     procedure DoDrawCell(Sender: TObject; ACol, ARow: Integer; RP: PRastPort; ARect: TRect); override;
-    function CalcColWidthFromSheet(AWidth: Single): Integer;
+    function CalcColSizeFromSheet(ASize: Single): Integer;
+    function CalcSizeToSheet(ASize: Integer): Single;
   public
     constructor Create; override;
     destructor Destroy; override;
@@ -234,21 +241,26 @@ begin
     FWorksheet.WriteBoolValue(r, c, AValue);
 end;
 
-function TOfficeGrid.CalcColWidthFromSheet(AWidth: Single): Integer;
+function TOfficeGrid.CalcColSizeFromSheet(ASize: Single): Integer;
 var
   w_pts: Double;
 begin
-  w_pts := FWorkbook.ConvertUnits(AWidth, FWorkbook.Units, suPoints);
+  w_pts := FWorkbook.ConvertUnits(ASize, FWorkbook.Units, suPoints);
   Result := PtsToPx(w_pts, 72);
+end;
+
+function TOfficeGrid.CalcSizeToSheet(ASize: Integer): Single;
+var
+  h_pts: Single;
+begin
+  h_pts := PxToPts(ASize, 72);
+  Result := FWorkbook.ConvertUnits(h_pts, suPoints, FWorkbook.Units);
 end;
 
 procedure TOfficeGrid.LoadWorksheet(Idx: Integer);
 var
   cell: PCell;
   MaxC, MaxR: Integer;
-  lCol: PCol;
-  i, w: Integer;
-  w100: Integer;
 begin
   if Idx < 0 then
     FWorksheet := FWorkbook.GetFirstWorksheet
@@ -273,20 +285,6 @@ begin
   NumRows := MaxR + 2;
   NumCols := MaxC + 2;
 
-  for i := 0 to NumCols - 1 do
-  begin
-    lCol := Worksheet.FindCol(i - FHeaderCount);
-    if (lCol <> nil) and lCol^.Hidden then
-      w := 0
-    else begin
-      if (lCol <> nil) and (lCol^.ColWidthType = cwtCustom) then
-        w100 := CalcColWidthFromSheet(lCol^.Width)
-      else
-        w100 := CalcColWidthFromSheet(FWorksheet.ReadDefaultColWidth(FWorkbook.Units));
-      w := round(w100 * 1.0);
-    end;
-    CellWidth[i] := w;
-  end;
   finally
     BlockRecalcSize := False;
     RecalcSize;
@@ -319,7 +317,6 @@ begin
   if FFilename = '' then
     Exit;
   FWorkbook.WriteToFile(FFileName, True);
-
 end;
 
 
@@ -337,6 +334,93 @@ begin
   else
     SetCellValue(ACol, ARow, AnsiToUTF8(AValue));
   inherited;
+end;
+
+function TOfficeGrid.GetCellWidth(ACol: Integer): Integer;
+var
+  lCol: PCol;
+  w: Integer;
+  w100: Integer;
+begin
+  lCol := Worksheet.FindCol(ACol - FHeaderCount);
+  if lCol = nil then
+  begin
+    Result := inherited;
+    Exit;
+  end;
+  //
+  if (lCol <> nil) and lCol^.Hidden then
+    w := 0
+  else
+  begin
+    if lCol^.ColWidthType = cwtCustom then
+      w100 := CalcColSizeFromSheet(lCol^.Width)
+    else
+      w100 := CalcColSizeFromSheet(FWorksheet.ReadDefaultColWidth(FWorkbook.Units));
+    w := round(w100 * 1.2);
+  end;
+  Result := w;
+end;
+
+procedure TOfficeGrid.SetCellWidth(ACol: Integer; AWidth: Integer);
+var
+  lCol: PCol;
+begin
+  lCol := Worksheet.FindCol(ACol - FHeaderCount);
+  if lCol = nil then
+  begin
+    inherited;
+    Exit;
+  end;
+  //
+  if lCol^.Hidden then
+    Exit;
+  lCol^.ColWidthType := cwtCustom;
+  lCol^.Width := CalcSizeToSheet(AWidth) / 1.2;
+  RecalcSize;
+end;
+
+function TOfficeGrid.GetCellHeight(ARow: Integer): Integer;
+var
+  lRow: PRow;
+  h: Integer;
+  h100: Integer;
+begin
+  lRow := Worksheet.FindRow(ARow - FixedRows);
+  if lRow = nil then
+  begin
+    Result := inherited;
+    Exit;
+  end;
+  //
+  if lRow^.Hidden then
+    h := 0
+  else
+  begin
+    if lRow^.RowHeightType = rhtCustom then
+      h100 := CalcColSizeFromSheet(lRow^.Height)
+    else
+      h100 := CalcColSizeFromSheet(FWorksheet.ReadDefaultRowHeight(FWorkbook.Units));
+    h := round(h100 * 1.2);
+  end;
+  Result := h;
+end;
+
+procedure TOfficeGrid.SetCellHeight(ARow: Integer; AHeight: Integer);
+var
+  lRow: PRow;
+begin
+  lRow := Worksheet.FindRow(ARow - FixedRows);
+  if lRow = nil then
+  begin
+    inherited;
+    Exit;
+  end;
+  if lRow^.Hidden then
+    Exit;
+  lRow^.RowHeightType := rhtCustom;
+  lRow^.Height := CalcSizeToSheet(AHeight) / 1.2;
+  RecalcSize;
 end;
 
 function TOfficeGrid.GetCellBorderStyle(ACol, ARow: Integer;
