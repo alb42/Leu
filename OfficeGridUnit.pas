@@ -685,8 +685,11 @@ begin
   Pen := -1;
   BGPen := -1;
   FShowFormulas := False;
-  s := Cells[ACol, ARow];
   CS := CellStatus[ACol, ARow];
+  if EditMode and (CS = csFocussed) then
+    s := EditText
+  else
+    s := Cells[ACol, ARow];
 
   fmt := nil;
   Color := scBlack; // Black as default text color
@@ -742,6 +745,9 @@ begin
       end;
     end;
   end;
+
+  if EditMode and (CS = csFocussed) then
+    HorAlign := haRight;
 
   if CS = csFixed then
   begin
@@ -803,6 +809,12 @@ begin
   if CS = csFocussed then
   begin
     SetAPen(RP, 1);
+    // Draw cursor line
+    if EditMode then
+    begin
+      GfxMove(RP, ARect.Right - 3, ARect.Top + ARect.Height div 2 + RP^.Font^.tf_Baseline div 2 - TE.te_Height);
+      AGraphics.Draw(RP, ARect.Right - 3, ARect.Top + ARect.Height div 2 + RP^.Font^.tf_Baseline div 2 + TE.te_Height div 2);
+    end;
     GfxMove(RP, ARect.Left + 1, ARect.Top + 1);
     //
     AGraphics.Draw(RP, ARect.Right, ARect.Top + 1);
