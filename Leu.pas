@@ -26,6 +26,7 @@ type
     procedure MenuQuit(Sender: TObject); // Quit
     // Font Buttons
     procedure FontPropChanged(Sender: TObject);
+    procedure TextAlignChanged(Sender: TObject);
     //
     procedure ListClick(Sender: TObject);
     procedure SetClick(Sender: TObject);
@@ -38,10 +39,8 @@ type
     SheetName: TMUIText;
     WText: TMUIString;
     SG: TOfficeGrid;  // A StringGrid
-    BoldBtn: TMUIButton;
-    ItalicBtn: TMUIButton;
-    ULineBtn: TMUIButton;
-
+    BoldBtn, ItalicBtn, ULineBtn: TMUIButton;
+    LeftAlignBtn, CenterAlignBtn, RightAlignBtn: TMUIButton;
     function LoadFile(AFilename: string): Boolean;
     constructor Create; override;
   end;
@@ -125,29 +124,7 @@ begin
   SG.SelectAll(False);
 end;
 
-procedure TMyWindow.ListClick(Sender: TObject);
-var
-  Cell: PCell;
-  fnt: TsFont;
-begin
-  BlockEvents := True;
-  try
-    WColRow.Contents := GetColString(SG.Col - SG.FixedCols) + IntToStr(SG.Row);
-    WText.Contents := SG.Cells[SG.Col, SG.Row];
-    //
-    // Update Font Parameter
-    cell := SG.Worksheet.FindCell(SG.Row - SG.FixedRows, SG.Col - SG.FixedCols);
-    fnt := SG.Worksheet.ReadCellFont(cell);
-    if Assigned(fnt) then
-    begin
-      BoldBtn.Selected := fssBold in fnt.Style;
-      ItalicBtn.Selected := fssItalic in fnt.Style;
-      ULineBtn.Selected := fssUnderline in fnt.Style;
-    end;
-  finally
-    BlockEvents := False;
-  end;
-end;
+
 
 function TMyWindow.LoadFile(AFileName: string): Boolean;
 begin
@@ -184,32 +161,92 @@ begin
   ActiveObject := WText;
 end;
 
+//#############
+// Lick click
+procedure TMyWindow.ListClick(Sender: TObject);
+var
+  Style: TsFontStyles;
+  ha: TsHorAlignment;
+begin
+  BlockEvents := True;
+  try
+    WColRow.Contents := GetColString(SG.Col - SG.FixedCols) + IntToStr(SG.Row);
+    WText.Contents := SG.Cells[SG.Col, SG.Row];
+    //
+    // Update Font Parameter
+    Style := SG.CellFontStyle[SG.Col, SG.Row];
+    BoldBtn.Selected := fssBold in Style;
+    ItalicBtn.Selected := fssItalic in Style;
+    ULineBtn.Selected := fssUnderline in Style;
+    // Update Text alignment
+    ha := SG.HorAlignment[SG.Col, SG.Row];
+    RightAlignBtn.Selected := ha = haRight;
+    CenterAlignBtn.Selected := ha = haCenter;
+    LeftAlignBtn.Selected := ha = haLeft;
+  finally
+    BlockEvents := False;
+  end;
+end;
+
+//################
+// Font Properties
 procedure TMyWindow.FontPropChanged(Sender: TObject);
 var
-  Cell: PCell;
-  fnt: TsFont;
+  Style: TsFontStyles;
 begin
   if BlockEvents then
     Exit;
   // update the Font Parameter
-  cell := SG.Worksheet.FindCell(SG.Row - SG.FixedRows, SG.Col - SG.FixedCols);
-  fnt := SG.Worksheet.ReadCellFont(cell);
-  if Assigned(fnt) then
-  begin
-    if BoldBtn.Selected then
-      fnt.Style := fnt.Style + [fssBold]
-    else
-      fnt.Style := fnt.Style - [fssBold];
-    if ItalicBtn.Selected then
-      fnt.Style := fnt.Style + [fssItalic]
-    else
-      fnt.Style := fnt.Style - [fssItalic];
-    if ULineBtn.Selected then
-      fnt.Style := fnt.Style + [fssUnderline]
-    else
-      fnt.Style := fnt.Style - [fssUnderline];
-  end;
+  Style := [];
+  if BoldBtn.Selected then
+    Style := Style + [fssBold];
+  if ItalicBtn.Selected then
+    Style := Style + [fssItalic];
+  if ULineBtn.Selected then
+    Style := Style + [fssUnderline];
+  SG.CellFontStyle[SG.Col, SG.Row] := Style;
   SG.ReDrawCell(SG.Col, SG.Row);
+end;
+
+//################
+// Text Alignment
+procedure TMyWindow.TextAlignChanged(Sender: TObject);
+var
+  ha: TsHorAlignment;
+begin
+  if BlockEvents then
+    Exit;
+  BlockEvents := True;
+  try
+    if (Sender = LeftAlignBtn) and LeftAlignBtn.Selected then
+    begin
+      RightAlignBtn.Selected := False;
+      CenterAlignBtn.Selected := False;
+    end else
+    if (Sender = CenterAlignBtn) and CenterAlignBtn.Selected then
+    begin
+      LeftAlignBtn.Selected := False;
+      RightAlignBtn.Selected := False;
+    end else
+    if (Sender = RightAlignBtn) and RightAlignBtn.Selected then
+    begin
+      CenterAlignBtn.Selected := False;
+      LeftAlignBtn.Selected := False;
+    end;
+    ha := haDefault;
+    if LeftAlignBtn.Selected then
+      ha := haLeft
+    else
+    if CenterAlignBtn.Selected then
+      ha := haCenter
+    else
+    if RightAlignBtn.Selected then
+      ha := haRight;
+    SG.HorAlignment[SG.Col, SG.Row] := ha;
+    SG.ReDrawCell(SG.Col, SG.Row);
+  finally
+    BlockEvents := False;
+  end;
 end;
 
 constructor TMyWindow.Create;
@@ -217,6 +254,7 @@ var
   HeadGroup: TMUIGroup;
   FootGroup: TMUIGroup;
   ProjectMenu: TMUIMenu;
+  Grp1: TMUIGroup;
 begin
   inherited;
   BlockEvents := False;
@@ -261,6 +299,7 @@ begin
 
   HeadGroup := TMUIGroup.Create;
   HeadGroup.Horiz := True;
+  HeadGroup.Frame := MUIV_Frame_None;
   HeadGroup.Parent := Self;
 
   WColRow := TMUIText.Create;
@@ -281,6 +320,16 @@ begin
     Parent := HeadGroup;
   end;
 
+  // Font Buttons
+
+  Grp1 := TMUIGroup.Create;
+  with Grp1 do
+  begin
+    Horiz := True;
+    FrameTitle := 'Font';
+    Parent := HeadGroup;
+  end;
+
   BoldBtn := TMUIButton.Create(MUIX_B + 'B');
   with BoldBtn do
   begin
@@ -288,7 +337,7 @@ begin
     CycleChain := 0;
     InputMode := MUIV_InputMode_Toggle;
     OnSelected := @FontPropChanged;
-    Parent := HeadGroup;
+    Parent := Grp1;
   end;
 
   ItalicBtn := TMUIButton.Create(MUIX_I + 'I');
@@ -298,7 +347,7 @@ begin
     CycleChain := 0;
     InputMode := MUIV_InputMode_Toggle;
     OnSelected := @FontPropChanged;
-    Parent := HeadGroup;
+    Parent := Grp1;
   end;
 
   ULineBtn := TMUIButton.Create(MUIX_U + 'U');
@@ -308,7 +357,47 @@ begin
     CycleChain := 0;
     InputMode := MUIV_InputMode_Toggle;
     OnSelected := @FontPropChanged;
+    Parent := Grp1;
+  end;
+
+  // Text Alignment stuff
+
+  Grp1 := TMUIGroup.Create;
+  with Grp1 do
+  begin
+    Horiz := True;
+    FrameTitle := 'Text Alignment';
     Parent := HeadGroup;
+  end;
+
+  LeftAlignBtn := TMUIButton.Create('Left');
+  with LeftAlignBtn do
+  begin
+    FixWidthTxt := 'Left';
+    CycleChain := 0;
+    InputMode := MUIV_InputMode_Toggle;
+    OnSelected := @TextAlignChanged;
+    Parent := Grp1;
+  end;
+
+  CenterAlignBtn := TMUIButton.Create('Center');
+  with CenterAlignBtn do
+  begin
+    FixWidthTxt := 'Center';
+    CycleChain := 0;
+    InputMode := MUIV_InputMode_Toggle;
+    OnSelected := @TextAlignChanged;
+    Parent := Grp1;
+  end;
+
+  RightAlignBtn := TMUIButton.Create('Right');
+  with RightAlignBtn do
+  begin
+    FixWidthTxt := 'Right';
+    CycleChain := 0;
+    InputMode := MUIV_InputMode_Toggle;
+    OnSelected := @TextAlignChanged;
+    Parent := Grp1;
   end;
 
 
@@ -316,12 +405,13 @@ begin
   SG.DefCellWidth := 100;
   SG.NumCols := 12;
   SG.NumRows := 60;
-
   SG.OnDblClick := @DblClick;
   SG.OnCellFocus := @ListClick;
+  SG.Frame := MUIV_Frame_None;
   SG.Parent := Self;
 
   FootGroup := TMUIGroup.Create;
+  FootGroup.Frame := MUIV_Frame_None;
   FootGroup.Horiz := True;
   FootGroup.Parent := Self;
 

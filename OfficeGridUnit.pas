@@ -26,6 +26,13 @@ type
     procedure SetCellValue(ACol, ARow: Integer; AValue: Variant);
     function GetWorksheetCount: Integer;
     function GetWorksheetIdx: Integer;
+    function GetCellFontStyle(ACol, ARow: Integer): TsFontStyles;
+    procedure SetCellFontStyle(ACol, ARow: Integer;  AValue: TsFontStyles);
+    function GetHorAlignment(ACol, ARow: Integer): TsHorAlignment;
+    procedure SetHorAlignment(ACol, ARow: Integer; AValue: TsHorAlignment);
+
+    procedure ChangedCellHandler(ASender: TObject; ARow, ACol:Cardinal);
+
   protected
     function GetCell(ACol, ARow: Integer): string; override;
     procedure SetCell(ACol, ARow: Integer; AValue: string); override;
@@ -53,12 +60,16 @@ type
 
     property ShowHeaders: Boolean read FShowHeaders write FShowHeaders;
     property Worksheet: TsWorksheet read FWorksheet;
+    property WorkBook: TsWorkBook read FWorkBook;
 
     property WorksheetCount: Integer read GetWorksheetCount;
     property WorksheetIdx: Integer read GetWorksheetIdx;
     property Filename: string read FFilename;
     property MinCols: Integer read FMinCols write FMinCols;
     property MinRows: Integer read FMinRows write FMinRows;
+
+    property CellFontStyle[ACol, ARow: Integer]: TsFontStyles read GetCellFontStyle write SetCellFontStyle;
+    property HorAlignment[ACol, ARow: Integer]: TsHorAlignment read GetHorAlignment write SetHorAlignment;
   end;
 
 implementation
@@ -96,6 +107,7 @@ begin
   FWorkbook := TsWorkbook.Create;
   FWorkbook.Options := FWorkbook.Options + [boAutoCalc];
   FWorksheet := FWorkbook.AddWorksheet('My Worksheet');
+  FWorksheet.OnChangeCell := @ChangedCellHandler;
   AllToRedraw := True;
   BlockRecalcSize := False;
   LoadWorksheet(-1); // load first Worksheet
@@ -104,6 +116,12 @@ begin
   RecalcSize;
   EndUpdate;
   ExitChange;
+end;
+
+procedure TOfficeGrid.ChangedCellHandler(ASender: TObject; ARow, ACol:Cardinal);
+begin
+  Unused(ASender, ARow, ACol);
+  AddToRedraw(ARow, ACol);
 end;
 
 function TOfficeGrid.GetWorksheetCount: Integer;
@@ -257,6 +275,55 @@ begin
     FWorksheet.WriteBoolValue(r, c, AValue);
 end;
 
+function TOfficeGrid.GetCellFontStyle(ACol, ARow: Integer): TsFontStyles;
+var
+  cell: PCell;
+  fnt: TsFont;
+begin
+  Result := [];
+  if (FWorkbook <> nil) and (FWorksheet <> nil) then begin
+    cell := FWorksheet.FindCell(ARow - FixedRows, ACol - FixedCols);
+    fnt := FWorksheet.ReadCellFont(cell);
+    Result := fnt.Style;
+  end;
+end;
+
+procedure TOfficeGrid.SetCellFontStyle(ACol, ARow: Integer;
+  AValue: TsFontStyles);
+var
+  cell: PCell;
+begin
+  if Assigned(Worksheet) then
+  begin
+    cell := Worksheet.GetCell(ARow - FixedRows, ACol - FixedCols);
+    Worksheet.WriteFontStyle(cell, AValue);
+  end;
+end;
+
+function TOfficeGrid.GetHorAlignment(ACol, ARow: Integer): TsHorAlignment;
+var
+  cell: PCell;
+begin
+  Result := haDefault;
+  if Assigned(Worksheet) then begin
+    cell := Worksheet.FindCell(ARow - FixedRows, ACol - FixedCols);
+    Result := Worksheet.ReadHorAlignment(cell);
+  end;
+end;
+
+procedure TOfficeGrid.SetHorAlignment(ACol, ARow: Integer;
+  AValue: TsHorAlignment);
+var
+  cell: PCell;
+begin
+  if Assigned(Worksheet) then
+  begin
+    cell := Worksheet.GetCell(ARow - FixedRows, ACol - FixedCols);
+    Worksheet.WriteHorAlignment(cell, AValue);
+  end;
+end;
+
+
 function TOfficeGrid.CalcColSizeFromSheet(ASize: Single): Integer;
 var
   w_pts: Double;
@@ -287,6 +354,7 @@ begin
     FWorksheet := FWorkbook.GetWorksheetByIndex(Idx);
   if not Assigned(FWorksheet) then
     Exit;
+  FWorksheet.OnChangeCell := @ChangedCellHandler;
   MaxR := FMinRows;
   MaxC := FMinCols;
   for Cell in FWorksheet.Cells do
