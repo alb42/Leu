@@ -24,18 +24,25 @@ type
     procedure MenuLoad(Sender: TObject); // Load
     procedure MenuSave(Sender: TObject); // Save
     procedure MenuQuit(Sender: TObject); // Quit
+    // Font Buttons
+    procedure FontPropChanged(Sender: TObject);
+    //
+    procedure ListClick(Sender: TObject);
+    procedure SetClick(Sender: TObject);
+    procedure ChangeWorksheet(Sender: TObject);
+    procedure DblClick(Sender: TObject);
   public
+    BlockEvents: Boolean;
     WColRow: TMUIText;
     PrevSheet, NextSheet: TMUIImage;
     SheetName: TMUIText;
     WText: TMUIString;
     SG: TOfficeGrid;  // A StringGrid
-    procedure ListClick(Sender: TObject);
-    procedure SetClick(Sender: TObject);
-    procedure ChangeWorksheet(Sender: TObject);
-    function LoadFile(AFilename: string): Boolean;
+    BoldBtn: TMUIButton;
+    ItalicBtn: TMUIButton;
+    ULineBtn: TMUIButton;
 
-    procedure DblClick(Sender: TObject);
+    function LoadFile(AFilename: string): Boolean;
     constructor Create; override;
   end;
 
@@ -90,6 +97,12 @@ begin
   begin
     try
       SG.SaveFile(FD.FileName);
+      Title := 'LEU <'+ExtractFileName(FD.FileName)+'> Columns:' + IntToStr(SG.NumCols) + ' Rows:' + IntToStr(SG.NumRows);
+      WColRow.Contents := '';
+      WText.Contents := '';
+      SheetName.Contents := IntToStr(SG.WorksheetIdx + 1) + '(' + SG.Worksheet.Name + ') /' + IntToStr(SG.WorksheetCount);
+      PrevSheet.Disabled := SG.WorksheetIdx <= 0;
+      NextSheet.Disabled := SG.WorksheetIdx >= SG.WorksheetCount;
     except
       on e: Exception do
       begin
@@ -113,9 +126,27 @@ begin
 end;
 
 procedure TMyWindow.ListClick(Sender: TObject);
+var
+  Cell: PCell;
+  fnt: TsFont;
 begin
-  WColRow.Contents := GetColString(SG.Col - SG.FixedCols) + IntToStr(SG.Row);
-  WText.Contents := SG.Cells[SG.Col, SG.Row];
+  BlockEvents := True;
+  try
+    WColRow.Contents := GetColString(SG.Col - SG.FixedCols) + IntToStr(SG.Row);
+    WText.Contents := SG.Cells[SG.Col, SG.Row];
+    //
+    // Update Font Parameter
+    cell := SG.Worksheet.FindCell(SG.Row - SG.FixedRows, SG.Col - SG.FixedCols);
+    fnt := SG.Worksheet.ReadCellFont(cell);
+    if Assigned(fnt) then
+    begin
+      BoldBtn.Selected := fssBold in fnt.Style;
+      ItalicBtn.Selected := fssItalic in fnt.Style;
+      ULineBtn.Selected := fssUnderline in fnt.Style;
+    end;
+  finally
+    BlockEvents := False;
+  end;
 end;
 
 function TMyWindow.LoadFile(AFileName: string): Boolean;
@@ -153,6 +184,34 @@ begin
   ActiveObject := WText;
 end;
 
+procedure TMyWindow.FontPropChanged(Sender: TObject);
+var
+  Cell: PCell;
+  fnt: TsFont;
+begin
+  if BlockEvents then
+    Exit;
+  // update the Font Parameter
+  cell := SG.Worksheet.FindCell(SG.Row - SG.FixedRows, SG.Col - SG.FixedCols);
+  fnt := SG.Worksheet.ReadCellFont(cell);
+  if Assigned(fnt) then
+  begin
+    if BoldBtn.Selected then
+      fnt.Style := fnt.Style + [fssBold]
+    else
+      fnt.Style := fnt.Style - [fssBold];
+    if ItalicBtn.Selected then
+      fnt.Style := fnt.Style + [fssItalic]
+    else
+      fnt.Style := fnt.Style - [fssItalic];
+    if ULineBtn.Selected then
+      fnt.Style := fnt.Style + [fssUnderline]
+    else
+      fnt.Style := fnt.Style - [fssUnderline];
+  end;
+  SG.ReDrawCell(SG.Col, SG.Row);
+end;
+
 constructor TMyWindow.Create;
 var
   HeadGroup: TMUIGroup;
@@ -160,6 +219,7 @@ var
   ProjectMenu: TMUIMenu;
 begin
   inherited;
+  BlockEvents := False;
 
   MenuStrip := TMUIMenuStrip.Create;
 
@@ -220,6 +280,37 @@ begin
     OnClick := @SetClick;
     Parent := HeadGroup;
   end;
+
+  BoldBtn := TMUIButton.Create(MUIX_B + 'B');
+  with BoldBtn do
+  begin
+    FixWidthTxt := ' B ';
+    CycleChain := 0;
+    InputMode := MUIV_InputMode_Toggle;
+    OnSelected := @FontPropChanged;
+    Parent := HeadGroup;
+  end;
+
+  ItalicBtn := TMUIButton.Create(MUIX_I + 'I');
+  with ItalicBtn do
+  begin
+    FixWidthTxt := ' I ';
+    CycleChain := 0;
+    InputMode := MUIV_InputMode_Toggle;
+    OnSelected := @FontPropChanged;
+    Parent := HeadGroup;
+  end;
+
+  ULineBtn := TMUIButton.Create(MUIX_U + 'U');
+  with ULineBtn do
+  begin
+    FixWidthTxt := ' U ';
+    CycleChain := 0;
+    InputMode := MUIV_InputMode_Toggle;
+    OnSelected := @FontPropChanged;
+    Parent := HeadGroup;
+  end;
+
 
   SG := TOfficeGrid.Create;
   SG.DefCellWidth := 100;
@@ -287,7 +378,7 @@ begin
   end;
 
   MUIApp.Title := 'LEU';
-  MUIApp.Version := '$VER: LEU 0.04 (08.06.2019)';
+  MUIApp.Version := '$VER: LEU 0.05 (09.06.2019)';
   MUIApp.Copyright := 'CC0';
   MUIApp.Author := 'Marcus "ALB42" Sackrow';
   MUIApp.Description := 'Simple Spreadsheet.';

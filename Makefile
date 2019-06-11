@@ -1,4 +1,4 @@
-FPCOPT=-O- -XX -CX -Xs
+FPCOPT=-XX -CX -Xs
 FPCFLAGS=-FUunits -Fu../MUIClass/src -Fuspread $(FPCOPT)
 
 all:
