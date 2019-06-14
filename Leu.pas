@@ -193,6 +193,8 @@ end;
 procedure TMyWindow.FontPropChanged(Sender: TObject);
 var
   Style: TsFontStyles;
+  i: Integer;
+  P: Types.TPoint;
 begin
   if BlockEvents then
     Exit;
@@ -204,8 +206,19 @@ begin
     Style := Style + [fssItalic];
   if ULineBtn.Selected then
     Style := Style + [fssUnderline];
+  SG.BeginUpdate;
   SG.CellFontStyle[SG.Col, SG.Row] := Style;
   SG.ReDrawCell(SG.Col, SG.Row);
+  // redraw selection
+  for i := 0 to SG.SelectionCount - 1 do
+  begin
+    P := SG.Selection[i];
+    SG.CellFontStyle[P.X, P.Y] := Style;
+    SG.ReDrawCell(P.X, P.Y);
+  end;
+  SG.EndUpdate;
+
+
 end;
 
 //################
@@ -213,6 +226,8 @@ end;
 procedure TMyWindow.TextAlignChanged(Sender: TObject);
 var
   ha: TsHorAlignment;
+  i: Integer;
+  P: Types.TPoint;
 begin
   if BlockEvents then
     Exit;
@@ -242,8 +257,21 @@ begin
     else
     if RightAlignBtn.Selected then
       ha := haRight;
+    // do not redraw
+    SG.BeginUpdate;
+    // assign focus
     SG.HorAlignment[SG.Col, SG.Row] := ha;
     SG.ReDrawCell(SG.Col, SG.Row);
+
+    // assign selection
+    for i := 0 to SG.SelectionCount - 1 do
+    begin
+      P := SG.Selection[i];
+      SG.HorAlignment[P.X, P.Y] := ha;
+      SG.ReDrawCell(P.X, P.Y);
+    end;
+    // redraw
+    SG.EndUpdate;
   finally
     BlockEvents := False;
   end;
