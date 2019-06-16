@@ -5,7 +5,7 @@ interface
 
 uses
   Types, Classes, SysUtils, intuition, agraphics, exec, utility,
-  Math,
+  Math, imagesunit,
   MUIClass.Base,
   MUIClass.Grid,
   MUIClass.Dialog,
@@ -49,6 +49,8 @@ type
     procedure DoDrawCell(Sender: TObject; ACol, ARow: Integer; RP: PRastPort; ARect: TRect); override;
     function CalcColSizeFromSheet(ASize: Single): Integer;
     function CalcSizeToSheet(ASize: Integer): Single;
+
+    procedure FixNeighborCellBorders(ACell: PCell);
   public
     constructor Create; override;
     destructor Destroy; override;
@@ -70,12 +72,30 @@ type
 
     property CellFontStyle[ACol, ARow: Integer]: TsFontStyles read GetCellFontStyle write SetCellFontStyle;
     property HorAlignment[ACol, ARow: Integer]: TsHorAlignment read GetHorAlignment write SetHorAlignment;
+
+    procedure SetCellBorder(ACol, ARow: Integer; AValue: TsCellBorders);
+    procedure SetCellBorders(ALeft, ATop, ARight, ABottom: Integer; AValue: TsCellBorders);
   end;
+
+function DrawBorder2CellBorder(c: TDrawBorders): TsCellBorders;
 
 implementation
 
 uses
   TCDReaderUnit;
+
+function DrawBorder2CellBorder(c: TDrawBorders): TsCellBorders;
+begin
+  Result := [];
+  if dbTop in c then
+    Include(Result, cbNorth);
+  if dbBottom in c then
+    Include(Result, cbSouth);
+  if dbLeft in c then
+    Include(Result, cbWest);
+  if dbRight in c then
+    Include(Result, cbEast);
+end;
 
 constructor TOfficeGrid.Create;
 begin
@@ -928,6 +948,106 @@ begin
     ReleasePen(ViewPortAddress(IntuitionBase^.ActiveWindow)^.ColorMap, BGPen);
 
   FShowFormulas := True;
+end;
+
+procedure TOfficeGrid.SetCellBorders(ALeft, ATop, ARight, ABottom: Integer; AValue: TsCellBorders);
+var
+  c,r: Integer;
+begin
+  EnsureOrder(ALeft, ARight);
+  EnsureOrder(ATop, ABottom);
+  for c := ALeft to ARight do
+    for r := ATop to ABottom do
+      SetCellBorder(c, r, AValue);
+end;
+
+procedure TOfficeGrid.SetCellBorder(ACol, ARow: Integer; AValue: TsCellBorders);
+var
+  cell: PCell;
+  //sr1, sc1, sr2, sc2: Cardinal;
+  //gr1, gc1, gr2, gc2: Integer;
+  //styles, saved_styles: TsCellBorderStyles;
+begin
+  if Assigned(Worksheet) then
+  begin
+    cell := Worksheet.GetCell(ARow - FixedRows, ACol - FixedCols);
+    if Worksheet.IsMergeBase(cell) then
+    begin
+      {styles := Worksheet.ReadCellBorderStyles(cell);
+      saved_styles := styles;
+      if not (cbEast in AValue) then
+        styles[cbEast] := NO_CELL_BORDER;
+      if not (cbWest in AValue) then styles[cbWest] := NO_CELL_BORDER;
+      if not (cbNorth in AValue) then styles[cbNorth] := NO_CELL_BORDER;
+      if not (cbSouth in AValue) then styles[cbSouth] := NO_CELL_BORDER;
+      Worksheet.FindMergedRange(cell, sr1, sc1, sr2, sc2);
+      gr1 := sr1 - FixedRows;
+      gr2 := sr2 - FixedRows;
+      gc1 := sc1 - FixedCols;
+      gc2 := sc2 - FixedCols;
+      // Set border flags and styles for all outer cells of the merged block
+      // Note: This overwrites the styles of the base ...
+      ShowCellBorders(gc1,gr1, gc2,gr2, styles[cbWest], styles[cbNorth],
+        styles[cbEast], styles[cbSouth], NO_CELL_BORDER, NO_CELL_BORDER);
+      // ... Restores base border style overwritten in prev instruction
+      Worksheet.WriteBorderStyles(cell, saved_styles);
+      Worksheet.WriteBorders(cell, AValue);}
+    end else
+    begin
+      Worksheet.WriteBorders(cell, AValue);
+      FixNeighborCellBorders(cell);
+      AddToRedraw(ACol, ARow);
+      if ACol > 0 then
+        AddToRedraw(ACol - 1 , ARow);
+      AddToRedraw(ACol + 1 , ARow);
+      if ARow > 0 then
+        AddToRedraw(ACol, ARow - 1);
+      AddToRedraw(ACol, ARow + 1);
+    end;
+  end;
+end;
+
+procedure TOfficeGrid.FixNeighborCellBorders(ACell: PCell);
+
+  procedure SetNeighborBorder(NewRow, NewCol: Cardinal;
+    ANewBorder: TsCellBorder; const ANewBorderStyle: TsCellBorderStyle;
+    AInclude: Boolean);
+  var
+    neighbor: PCell;
+    border: TsCellBorders;
+  begin
+    neighbor := Worksheet.FindCell(NewRow, NewCol);
+    if neighbor <> nil then
+    begin
+      border := Worksheet.ReadCelLBorders(neighbor);
+      if AInclude then
+      begin
+        Include(border, ANewBorder);
+        Worksheet.WriteBorderStyle(NewRow, NewCol, ANewBorder, ANewBorderStyle);
+      end else
+        Exclude(border, ANewBorder);
+      Worksheet.WriteBorders(NewRow, NewCol, border);
+      AddToRedraw(NewCol + FixedCols, NewRow + FixedRows);
+    end;
+  end;
+
+var
+  fmt: PsCellFormat;
+  idx: Integer;
+begin
+  if (Worksheet = nil) or (ACell = nil) then
+    exit;
+
+  idx := Worksheet.GetEffectiveCellFormatIndex(ACell);
+  fmt := Workbook.GetPointerToCellFormat(idx);
+  begin
+    if ACell^.Col > 0 then
+      SetNeighborBorder(ACell^.Row, ACell^.Col-1, cbEast, fmt^.BorderStyles[cbWest], cbWest in fmt^.Border);
+    SetNeighborBorder(ACell^.Row, ACell^.Col+1, cbWest, fmt^.BorderStyles[cbEast], cbEast in fmt^.Border);
+    if Row > 0 then
+      SetNeighborBorder(ACell^.Row-1, ACell^.Col, cbSouth, fmt^.BorderStyles[cbNorth], cbNorth in fmt^.Border);
+    SetNeighborBorder(ACell^.Row+1, ACell^.Col, cbNorth, fmt^.BorderStyles[cbSouth], cbSouth in fmt^.Border);
+  end;
 end;
 
 

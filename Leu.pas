@@ -14,6 +14,7 @@ uses
   MUIClass.Menu,
   MUIClass.Dialog,
   MUIClass.DrawPanel,
+  imagesunit,
   fpstypes, fpspreadsheet, fpsallformats, fpsutils, fpsnumformat, variants;
 
 type
@@ -27,6 +28,7 @@ type
     // Font Buttons
     procedure FontPropChanged(Sender: TObject);
     procedure TextAlignChanged(Sender: TObject);
+    procedure BorderSelectChanged(Sender: TObject; Border: TDrawBorders);
     //
     procedure ListClick(Sender: TObject);
     procedure SetClick(Sender: TObject);
@@ -123,8 +125,6 @@ begin
   SG.Row := SG.Row + 1;
   SG.SelectAll(False);
 end;
-
-
 
 function TMyWindow.LoadFile(AFileName: string): Boolean;
 begin
@@ -277,6 +277,68 @@ begin
   end;
 end;
 
+procedure TMyWindow.BorderSelectChanged(Sender: TObject; Border: TDrawBorders);
+var
+  i: Integer;
+  x, y, XMin, XMax, YMin, YMax: Integer;
+  sBorder: TsCellBorders;
+begin
+  YMin := SG.Row;
+  XMin := SG.Col;
+  YMax := SG.Row;
+  XMax := SG.Col;
+  SG.BeginUpdate;
+  try
+    for i := 0 to SG.SelectionCount - 1 do
+    begin
+      YMin := Min(YMin, SG.Selection[i].Y);
+      YMax := Max(YMax, SG.Selection[i].Y);
+      XMin := Min(XMin, SG.Selection[i].X);
+      XMax := Max(XMax, SG.Selection[i].X);
+    end;
+    for x := XMin to XMax do
+    begin
+      for y := YMin to YMax do
+      begin
+        sBorder := [];
+        if dbLeft in Border then
+        begin
+          if x= xMin then
+            Include(sBorder, cbWest);
+        end;
+        if dbRight in Border then
+        begin
+          if x= xMax then
+            Include(sBorder, cbEast);
+        end;
+        if dbTop in Border then
+        begin
+          if y = YMin then
+            Include(sBorder, cbNorth);
+        end;
+        if dbBottom in Border then
+        begin
+          if y = YMax then
+            Include(sBorder, cbSouth);
+        end;
+        if dbVMid in Border then
+        begin
+          Include(sBorder, cbNorth);
+          Include(sBorder, cbSouth);
+        end;
+        if dbHMid in Border then
+        begin
+          Include(sBorder, cbWest);
+          Include(sBorder, cbEast);
+        end;
+        SG.SetCellBorder(x,y, sBorder);
+      end;
+    end;
+  finally
+    SG.EndUpdate;
+  end;
+end;
+
 constructor TMyWindow.Create;
 var
   HeadGroup: TMUIGroup;
@@ -426,6 +488,12 @@ begin
     InputMode := MUIV_InputMode_Toggle;
     OnSelected := @TextAlignChanged;
     Parent := Grp1;
+  end;
+
+  with TBorderButton.Create do
+  begin
+    Parent := HeadGroup;
+    OnBorderSelect := @BorderSelectChanged;
   end;
 
 
