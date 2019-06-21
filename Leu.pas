@@ -14,7 +14,7 @@ uses
   MUIClass.Menu,
   MUIClass.Dialog,
   MUIClass.DrawPanel,
-  imagesunit,
+  imagesunit, colorunit,
   fpstypes, fpspreadsheet, fpsallformats, fpsutils, fpsnumformat, variants;
 
 type
@@ -29,6 +29,8 @@ type
     procedure FontPropChanged(Sender: TObject);
     procedure TextAlignChanged(Sender: TObject);
     procedure BorderSelectChanged(Sender: TObject; Border: TDrawBorders);
+    procedure BGColorClick(Sender: TObject);
+    procedure FontColorClick(Sender: TObject);
     //
     procedure ListClick(Sender: TObject);
     procedure SetClick(Sender: TObject);
@@ -52,6 +54,7 @@ var
 
 procedure TMyWindow.MenuNew(Sender: TObject);
 begin
+  Unused(Sender);
   SG.NewWorkbook;
   Title := 'LEU <> Columns:' + IntToStr(SG.NumCols) + ' Rows:' + IntToStr(SG.NumRows);
   WColRow.Contents := '';
@@ -65,6 +68,7 @@ procedure TMyWindow.MenuLoad(Sender: TObject);
 var
   FD: TFileDialog;
 begin
+  Unused(Sender);
   FD := TFileDialog.Create;
   FD.MultiSelect := False;
   FD.SaveMode := False;
@@ -89,6 +93,7 @@ procedure TMyWindow.MenuSave(Sender: TObject);
 var
   FD: TFileDialog;
 begin
+  Unused(Sender);
   FD := TFileDialog.Create;
   FD.MultiSelect := False;
   FD.SaveMode := True;
@@ -116,11 +121,13 @@ end;
 
 procedure TMyWindow.MenuQuit(Sender: TObject);
 begin
+  Unused(Sender);
   Self.Close;
 end;
 
 procedure TMyWindow.SetClick(Sender: TObject);
 begin
+  Unused(Sender);
   SG.Cells[SG.Col, SG.Row] := WText.Contents;
   SG.Row := SG.Row + 1;
   SG.SelectAll(False);
@@ -339,6 +346,52 @@ begin
   end;
 end;
 
+procedure TMyWindow.BGColorClick(Sender: TObject);
+var
+  i: Integer;
+  Col: LongWord;
+  BGButton: TColorButton;
+begin
+  if Sender is TColorButton then
+  begin
+    BGButton := TColorButton(Sender);
+    Col := BGButton.Color;
+    SG.BeginUpdate;
+    try
+      for i := 0 to SG.SelectionCount - 1 do
+      begin
+        SG.Worksheet.WriteBackgroundColor(SG.Selection[i].Y - SG.FixedRows, SG.Selection[i].X - SG.FixedCols, Col);
+        SG.RedrawCell(SG.Selection[i].X, SG.Selection[i].Y);
+      end;
+    finally
+      SG.EndUpdate;
+    end;
+  end;
+end;
+
+procedure TMyWindow.FontColorClick(Sender: TObject);
+var
+  i: Integer;
+  Col: LongWord;
+  FontButton: TColorButton;
+begin
+  if Sender is TColorButton then
+  begin
+    FontButton := TColorButton(Sender);
+    Col := FontButton.Color;
+    SG.BeginUpdate;
+    try
+      for i := 0 to SG.SelectionCount - 1 do
+      begin
+        SG.Worksheet.WriteFontColor(SG.Selection[i].Y - SG.FixedRows, SG.Selection[i].X - SG.FixedCols, Col);
+        SG.RedrawCell(SG.Selection[i].X, SG.Selection[i].Y);
+      end;
+    finally
+      SG.EndUpdate;
+    end;
+  end;
+end;
+
 constructor TMyWindow.Create;
 var
   HeadGroup: TMUIGroup;
@@ -450,6 +503,17 @@ begin
     Parent := Grp1;
   end;
 
+  with TColorButton.Create do
+  begin
+    Parent := Grp1;
+    ColorImage.Height := 15;
+    ColorImage.Width := 15;
+    ColorImage.FixHeight := 15;
+    ColorImage.FixWidth := 15;
+    Title := MUIX_B + MUIX_C + 'Font color';
+    OnColorClick := @FontColorClick;
+  end;
+
   // Text Alignment stuff
 
   Grp1 := TMUIGroup.Create;
@@ -496,6 +560,13 @@ begin
     OnBorderSelect := @BorderSelectChanged;
   end;
 
+
+  with TColorButton.Create do
+  begin
+    Parent := HeadGroup;
+    Title := MUIX_B + MUIX_C + 'Background color';
+    OnColorClick := @BGColorClick;
+  end;
 
   SG := TOfficeGrid.Create;
   SG.DefCellWidth := 100;
@@ -564,7 +635,7 @@ begin
   end;
 
   MUIApp.Title := 'LEU';
-  MUIApp.Version := '$VER: LEU 0.05 (09.06.2019)';
+  MUIApp.Version := '$VER: LEU 0.06 (21.06.2019)';
   MUIApp.Copyright := 'CC0';
   MUIApp.Author := 'Marcus "ALB42" Sackrow';
   MUIApp.Description := 'Simple Spreadsheet.';

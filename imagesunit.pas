@@ -2,7 +2,7 @@ unit imagesunit;
 {$mode objfpc}{$H+}
 interface
 uses
-  Types, AGraphics, MUI,
+  Types, AGraphics, MUI, exec, utility,
   MUIClass.Base,
   MUIClass.DrawPanel, MUIClass.Area, MUIClass.Image, MUIClass.Window,
   MUIClass.Group;
@@ -55,7 +55,6 @@ var
 begin
   InputMode := MUIV_InputMode_RelVerify;
   Frame := MUIV_FRAME_BUTTON;
-  Background.SetStdPattern(MUII_BACKGROUND);
   Width := 24;
   Height := 24;
   FixWidth := Width;
