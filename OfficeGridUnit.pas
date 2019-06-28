@@ -140,8 +140,8 @@ end;
 
 procedure TOfficeGrid.ChangedCellHandler(ASender: TObject; ARow, ACol:Cardinal);
 begin
-  Unused(ASender, ARow, ACol);
-  AddToRedraw(ARow, ACol);
+  Unused(ASender);
+  AddToRedraw(ACol + FixedCols, ARow + FixedRows);
 end;
 
 function TOfficeGrid.GetWorksheetCount: Integer;

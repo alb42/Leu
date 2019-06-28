@@ -2,7 +2,7 @@ unit ColorUnit;
 {$mode objfpc}{$H+}
 interface
 uses
-  Types, AGraphics, MUI, intuition, Classes, utility, exec,
+  Types, AGraphics, MUI, intuition, Classes, utility, exec, Math,
   MUIClass.Base,
   MUIClass.DrawPanel, MUIClass.Area, MUIClass.Image, MUIClass.Window,
   MUIClass.Group;
@@ -39,7 +39,7 @@ type
     ColChooseWin: TMUIWindow;
     CA: TMUIColorAdjust;
     //
-    Buttons: array[0..255] of TColorImage;
+    Buttons: array of TColorImage;
     Last: array[0..11] of TColorImage;
     procedure ClickButton(Sender: TObject);
     procedure DeactiveEvent(Sender: TObject);
@@ -159,6 +159,7 @@ constructor TColorButton.Create;
 var
   i: Integer;
   Grp2, Grp3: TMUIGroup;
+  Depth: Integer;
 begin
   inherited;
   Frame := MUIV_FRAME_NONE;
@@ -199,6 +200,12 @@ begin
   Grp2 := TMUIGroup.Create;
   Grp2.Parent := Grp;
   Grp2.Columns := 16;
+
+  Depth := Min(8, IntuitionBase^.ActiveScreen^.Bitmap.Depth);
+
+  Depth := 2 ** Depth;
+  SetLength(Buttons, Depth);
+
   //
   for i := 0 to High(Buttons) do
   begin

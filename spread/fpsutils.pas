@@ -27,7 +27,11 @@ type
   TsSelectionDirection = (fpsVerticalSelection, fpsHorizontalSelection);
 
   {@@ Color value, composed of r(ed), g(reen) and b(lue) components }
+  {$ifdef ENDIAN_BIG}
+  TRGBA = record a, b, g, r: byte end;
+  {$else}
   TRGBA = record r, g, b, a: byte end;
+  {$endif}
 
   {@@ Set of ansi characters }
   TAnsiCharSet = set of ansichar;
