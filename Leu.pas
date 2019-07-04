@@ -15,7 +15,8 @@ uses
   MUIClass.Dialog,
   MUIClass.DrawPanel,
   imagesunit, colorunit,
-  fpstypes, fpspreadsheet, fpsallformats, fpsutils, fpsnumformat, variants;
+  fpstypes, fpspreadsheet, fpsallformats, fpsutils, fpsnumformat,
+  variants, SetSizeUnit;
 
 type
   TMyWindow = class(TMUIWindow)
@@ -24,7 +25,11 @@ type
     procedure MenuNew(Sender: TObject); // New
     procedure MenuLoad(Sender: TObject); // Load
     procedure MenuSave(Sender: TObject); // Save
+    procedure MenuSetSize(Sender: TObject); // SetSize
     procedure MenuQuit(Sender: TObject); // Quit
+    //
+    procedure SetSizeEvent(Sender: TObject);
+    procedure AutoColsRowsEvent(Sender: TObject);
     // Font Buttons
     procedure FontPropChanged(Sender: TObject);
     procedure TextAlignChanged(Sender: TObject);
@@ -119,6 +124,13 @@ begin
   FD.Free;
 end;
 
+procedure TMyWindow.MenuSetSize(Sender: TObject);
+begin
+  SetSizeWin.OnAccept := @SetSizeEvent;
+  SetSizeWin.OnAutoSize := @AutoColsRowsEvent;
+  SetSizeWin.ShowWindow(SG.NumCols, SG.NumRows);
+end;
+
 procedure TMyWindow.MenuQuit(Sender: TObject);
 begin
   Unused(Sender);
@@ -166,6 +178,27 @@ end;
 procedure TMyWindow.DblClick(Sender: TObject);
 begin
   ActiveObject := WText;
+end;
+
+procedure TMyWindow.SetSizeEvent(Sender: TObject);
+begin
+  SG.SetSize(SetSizeWin.Columns, SetSizeWin.Rows);
+end;
+
+procedure TMyWindow.AutoColsRowsEvent(Sender: TObject);
+var
+  MaxR, MaxC: Integer;
+  Cell: PCell;
+begin
+  MaxR := 2;
+  MaxC := 2;
+  for Cell in SG.Worksheet.Cells do
+  begin
+    MaxR := Max(Cell^.Row, MaxR);
+    MaxC := Max(Cell^.Col, MaxC);
+  end;
+  SetSizeWin.Columns := MaxC + 2;
+  SetSizeWin.Rows := MaxR + 2;
 end;
 
 //#############
@@ -434,6 +467,14 @@ begin
 
   with TMUIMenuItem.Create do
   begin
+    Title := 'Set Size...';
+    ShortCut := 'L';
+    OnTrigger := @MenuSetSize;
+    Parent := ProjectMenu;
+  end;
+
+  with TMUIMenuItem.Create do
+  begin
     Title := 'Quit';
     ShortCut := 'Q';
     OnTrigger := @MenuQuit;
@@ -620,6 +661,7 @@ procedure StartMe;
 begin
   // Create a Window, with a title bar text
   Win := TMyWindow.Create;
+  SetSizeWin := TSetSizeWin.Create;
 
   if ParamCount > 0 then
   begin

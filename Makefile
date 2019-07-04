@@ -1,11 +1,18 @@
-FPCOPT=-XX -CX -Xs
-FPCFLAGS=-FUunits -Fu../MUIClass/src -Fuspread $(FPCOPT)
+FPCOPT=-XX -CX
+FPCFLAGS=-FUunits -Fu../MUIClass/src -Fuspread $(FPCOPT) -Xs
+FPCFLAGSR=-FUunits -Fu../MUIClass/src -Fuspread $(FPCOPT)
 
 all:
 	fpc4aros.sh $(FPCFLAGS) Leu.pas
 	
 amiga: 
 	fpc4amiga.sh $(FPCFLAGS) Leu.pas
+amigafpuo: 
+	fpc4amigafpu.sh -B -Xs- $(FPCFLAGSR) -FWLeuAmiga-1.wpo -OWall Leu.pas
+	fpc4amigafpu.sh -B -Xs- $(FPCFLAGSR) -FwLeuAmiga-1.wpo -FWLeuAmiga-2.wpo -OWall -Owall Leu.pas
+	fpc4amigafpu.sh -B $(FPCFLAGS) -FwLeuAmiga-2.wpo -Owall Leu.pas
+amigafpu: 
+	fpc4amigafpu.sh $(FPCFLAGS) Leu.pas
 
 os4: 
 	fpc4os4.sh $(FPCFLAGS) Leu.pas
