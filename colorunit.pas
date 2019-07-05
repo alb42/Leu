@@ -170,6 +170,7 @@ begin
     Frame := MUIV_FRAME_BUTTON;
     Transparent := 0;
     Parent := Self;
+    Pen := 2;
     OnClick := @ClickLastColor;
   end;
 
@@ -348,7 +349,7 @@ var
   col: array[0..2] of LongWord;
 begin
   if ColorImage.Pen < 0 then
-    Result := $80000000
+    Result := $20000000
   else
   begin
     {$ifdef MorphOS}

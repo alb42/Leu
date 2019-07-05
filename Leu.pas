@@ -1,7 +1,7 @@
 program Leu;
 {$mode objfpc}{$H+}
 uses
-  Types, Classes, SysUtils, intuition, agraphics, exec, utility, mui,
+  Types, Classes, SysUtils, intuition, agraphics, mui,
   Math,
   OfficeGridUnit,
   MUIClass.Base,
@@ -15,7 +15,7 @@ uses
   MUIClass.Dialog,
   MUIClass.DrawPanel,
   imagesunit, colorunit,
-  fpstypes, fpspreadsheet, fpsallformats, fpsutils, fpsnumformat,
+  fpstypes, fpspreadsheet, fpsutils, fpsnumformat,
   variants, SetSizeUnit;
 
 type
@@ -27,6 +27,11 @@ type
     procedure MenuSave(Sender: TObject); // Save
     procedure MenuSetSize(Sender: TObject); // SetSize
     procedure MenuQuit(Sender: TObject); // Quit
+    procedure MenuCopy(Sender: TObject); // Copy
+    procedure MenuCut(Sender: TObject); // Cut
+    procedure MenuPaste(Sender: TObject); // Paste
+    procedure MenuDelete(Sender: TObject); // Delete
+
     //
     procedure SetSizeEvent(Sender: TObject);
     procedure AutoColsRowsEvent(Sender: TObject);
@@ -126,6 +131,7 @@ end;
 
 procedure TMyWindow.MenuSetSize(Sender: TObject);
 begin
+  Unused(Sender);
   SetSizeWin.OnAccept := @SetSizeEvent;
   SetSizeWin.OnAutoSize := @AutoColsRowsEvent;
   SetSizeWin.ShowWindow(SG.NumCols, SG.NumRows);
@@ -135,6 +141,30 @@ procedure TMyWindow.MenuQuit(Sender: TObject);
 begin
   Unused(Sender);
   Self.Close;
+end;
+
+procedure TMyWindow.MenuCopy(Sender: TObject); // Copy
+begin
+  Unused(Sender);
+  SG.CopyToClip;
+end;
+
+procedure TMyWindow.MenuCut(Sender: TObject); // Cut
+begin
+  Unused(Sender);
+  SG.CutToClip;
+end;
+
+procedure TMyWindow.MenuPaste(Sender: TObject); // Paste
+begin
+  Unused(Sender);
+  SG.PasteFromClip;
+end;
+
+procedure TMyWindow.MenuDelete(Sender: TObject);
+begin
+  Unused(Sender);
+  SG.DeleteSelectedCells;
 end;
 
 procedure TMyWindow.SetClick(Sender: TObject);
@@ -177,11 +207,13 @@ end;
 
 procedure TMyWindow.DblClick(Sender: TObject);
 begin
+  Unused(Sender);
   ActiveObject := WText;
 end;
 
 procedure TMyWindow.SetSizeEvent(Sender: TObject);
 begin
+  Unused(Sender);
   SG.SetSize(SetSizeWin.Columns, SetSizeWin.Rows);
 end;
 
@@ -190,6 +222,7 @@ var
   MaxR, MaxC: Integer;
   Cell: PCell;
 begin
+  Unused(Sender);
   MaxR := 2;
   MaxC := 2;
   for Cell in SG.Worksheet.Cells do
@@ -208,6 +241,7 @@ var
   Style: TsFontStyles;
   ha: TsHorAlignment;
 begin
+  Unused(Sender);
   BlockEvents := True;
   try
     WColRow.Contents := GetColString(SG.Col - SG.FixedCols) + IntToStr(SG.Row);
@@ -236,6 +270,7 @@ var
   i: Integer;
   P: Types.TPoint;
 begin
+  Unused(Sender);
   if BlockEvents then
     Exit;
   // update the Font Parameter
@@ -323,6 +358,7 @@ var
   x, y, XMin, XMax, YMin, YMax: Integer;
   sBorder: TsCellBorders;
 begin
+  Unused(Sender);
   YMin := SG.Row;
   XMin := SG.Col;
   YMax := SG.Row;
@@ -430,6 +466,7 @@ var
   HeadGroup: TMUIGroup;
   FootGroup: TMUIGroup;
   ProjectMenu: TMUIMenu;
+  EditMenu: TMUIMenu;
   Grp1: TMUIGroup;
 begin
   inherited;
@@ -480,6 +517,51 @@ begin
     OnTrigger := @MenuQuit;
     Parent := ProjectMenu;
   end;
+
+  EditMenu := TMUIMenu.Create;
+  EditMenu.Title := 'Edit';
+  EditMenu.Parent := MenuStrip;
+
+  with TMUIMenuItem.Create do
+  begin
+    Title := 'Copy';
+    ShortCut := 'C';
+    OnTrigger := @MenuCopy;
+    Parent := EditMenu;
+  end;
+
+  with TMUIMenuItem.Create do
+  begin
+    Title := 'Cut';
+    ShortCut := 'X';
+    OnTrigger := @MenuCut;
+    Parent := EditMenu;
+  end;
+
+  with TMUIMenuItem.Create do
+  begin
+    Title := 'Paste';
+    ShortCut := 'V';
+    OnTrigger := @MenuPaste;
+    Parent := EditMenu;
+  end;
+
+  with TMUIMenuItem.Create do
+  begin
+    Title := '-';
+    Parent := EditMenu;
+  end;
+
+  with TMUIMenuItem.Create do
+  begin
+    Title := 'Erase';
+    ShortCut := 'Delete';
+    CommandString := True;
+    OnTrigger := @MenuDelete;
+    Parent := EditMenu;
+  end;
+
+  //
 
   HeadGroup := TMUIGroup.Create;
   HeadGroup.Horiz := True;
@@ -677,7 +759,7 @@ begin
   end;
 
   MUIApp.Title := 'LEU';
-  MUIApp.Version := '$VER: LEU 0.06 (21.06.2019)';
+  MUIApp.Version := '$VER: LEU 0.07 (05.07.2019)';
   MUIApp.Copyright := 'CC0';
   MUIApp.Author := 'Marcus "ALB42" Sackrow';
   MUIApp.Description := 'Simple Spreadsheet.';

@@ -4,7 +4,7 @@ unit OfficeGridUnit;
 interface
 
 uses
-  Types, Classes, SysUtils, intuition, agraphics, exec, utility,
+  Types, Classes, SysUtils, intuition, agraphics, exec, utility, iffparse,
   Math, imagesunit,
   MUIClass.Base,
   MUIClass.Grid,
@@ -51,6 +51,8 @@ type
     function CalcSizeToSheet(ASize: Integer): Single;
 
     procedure FixNeighborCellBorders(ACell: PCell);
+
+    procedure DoDeleteCell(ACol, ARow: Integer); override;
   public
     constructor Create; override;
     destructor Destroy; override;
@@ -59,6 +61,10 @@ type
     procedure LoadFile(AFileName: string);
     procedure SaveFile(AFileName: string);
     procedure LoadWorksheet(Idx: Integer);
+
+    procedure CopyToClip; override;
+    procedure CutToClip; override;
+    procedure PasteFromClip; override;
 
     property ShowHeaders: Boolean read FShowHeaders write FShowHeaders;
     property Worksheet: TsWorksheet read FWorksheet;
@@ -82,7 +88,7 @@ function DrawBorder2CellBorder(c: TDrawBorders): TsCellBorders;
 implementation
 
 uses
-  TCDReaderUnit;
+  TCDReaderUnit, clipunit;
 
 function DrawBorder2CellBorder(c: TDrawBorders): TsCellBorders;
 begin
@@ -1050,5 +1056,182 @@ begin
   end;
 end;
 
+procedure TOfficeGrid.DoDeleteCell(ACol, ARow: Integer);
+var
+  RemoveFormat: Boolean;
+  Cell: PCell;
+begin
+  RemoveFormat := Cells[ACol, ARow] = '';
+  Cell := Worksheet.GetCell(ARow - FixedRows, ACol - FixedCols);
+  if Assigned(Cell) and RemoveFormat then
+    WorkSheet.DeleteCell(Cell);
+  inherited;
+end;
 
+procedure TOfficeGrid.CopyToClip;
+var
+  MS: TMemoryStream;
+  Data: TClipData;
+  Idx: Integer;
+  i: Integer;
+  SelectedCells: TsCellRangeArray;
+  SL: TStringList;
+  x,y: Integer;
+  Line: string;
+begin
+  SetLength(Data, 0);
+  MS := TMemoryStream.Create;
+  SL := TStringList.Create;
+  try
+    SetLength(SelectedCells, 1);
+    SelectedCells[0].Col1 := Col - FixedCols;
+    SelectedCells[0].Col2 := Col - FixedCols;
+    SelectedCells[0].Row1 := Row - FixedRows;
+    SelectedCells[0].Row2 := Row - FixedRows;
+    for i := 0 to SelectionCount - 1 do
+    begin
+      SelectedCells[0].Col1 := Min(SelectedCells[0].Col1, Selection[i].X - FixedCols);
+      SelectedCells[0].Col2 := Max(SelectedCells[0].Col2, Selection[i].X - FixedCols);
+      SelectedCells[0].Row1 := Min(SelectedCells[0].Row1, Selection[i].Y - FixedRows);
+      SelectedCells[0].Row2 := Max(SelectedCells[0].Row2, Selection[i].Y - FixedRows);
+    end;
+    Worksheet.SetSelection(SelectedCells);
+
+    Workbook.CopyToClipboardStream(MS, sfOOXML);
+    MS.Position := 0;
+    if MS.Size > 0 then
+    begin
+      Idx := Length(Data);
+      SetLength(Data, Idx + 1);
+      Data[Idx].Typ := MAKE_ID('OXML');
+      Data[Idx].ID := MAKE_ID('BODY');
+      Data[Idx].Buffer := AllocMem(MS.Size);
+      Data[Idx].BufferSize := MS.Size;
+      MS.Read(Data[Idx].Buffer^, MS.Size);
+    end;
+    MS.Clear;
+    //
+    // we put together our own list instead the CSV function, (it does not copy results of forumlas)
+    FShowFormulas := False;
+    for y := SelectedCells[0].Row1 to SelectedCells[0].Row2 do
+    begin
+      Line := '';
+      for x := SelectedCells[0].Col1 to SelectedCells[0].Col2 do
+      begin
+         if Line = '' then
+           Line := Cells[x + FixedCols, y + FixedRows]
+         else
+           Line := Line + #9 + Cells[x + FixedCols, y + FixedRows];
+      end;
+      SL.Add(Line);
+    end;
+    FShowFormulas := True;
+    SL.SaveToStream(MS);
+
+    //WorkBook.CopyToClipboardStream(MS, sfCSV); // Original CSV write
+    MS.Position := 0;
+    if MS.Size > 0 then
+    begin
+      Idx := Length(Data);
+      SetLength(Data, Idx + 1);
+      Data[Idx].Typ := ID_FTXT;
+      Data[Idx].ID := ID_CHRS;
+      Data[Idx].Buffer := AllocMem(MS.Size);
+
+      Data[Idx].BufferSize := MS.Size;
+      MS.Read(Data[Idx].Buffer^, MS.Size);
+    end;
+    MS.Clear;
+    if Length(Data) > 0 then
+      PutToClip(Data);
+  finally
+    MS.Free;
+    SL.Free;
+  end;
+end;
+
+procedure TOfficeGrid.CutToClip;
+var
+  Cell: PCell;
+  i: Integer;
+begin
+  CopyToClip;
+  BeginUpdate;
+  for i := 0 to SelectionCount - 1 do
+  begin
+    Cell := Worksheet.GetCell(Selection[i].Y - FixedRows, Selection[i].X - FixedCols);
+    if Assigned(Cell) then
+      WorkSheet.DeleteCell(Cell);
+    Cells[Selection[i].X, Selection[i].Y] := '';
+  end;
+  EndUpdate;
+end;
+
+procedure TOfficeGrid.PasteFromClip;
+var
+  MS: TMemoryStream;
+  Data: TClipData;
+  ExclIdx, TextIdx, i: Integer;
+  SelectedCells: TsCellRangeArray;
+  Text: AnsiString;
+begin
+  SetLength(Data, 0);
+  MS := TMemoryStream.Create;
+  try
+    BeginUpdate;
+    if SelectionCount = 0 then
+    begin
+      SetLength(SelectedCells, 0);
+    end
+    else
+    begin
+      SetLength(SelectedCells, 1);
+      SelectedCells[0].Col1 := Col - FixedCols;
+      SelectedCells[0].Col2 := Col - FixedCols;
+      SelectedCells[0].Row1 := Row - FixedRows;
+      SelectedCells[0].Row2 := Row - FixedRows;
+      for i := 0 to SelectionCount - 1 do
+      begin
+        SelectedCells[0].Col1 := Min(SelectedCells[0].Col1, Selection[i].X - FixedCols);
+        SelectedCells[0].Col2 := Max(SelectedCells[0].Col2, Selection[i].X - FixedCols);
+        SelectedCells[0].Row1 := Min(SelectedCells[0].Row1, Selection[i].Y - FixedRows);
+        SelectedCells[0].Row2 := Max(SelectedCells[0].Row2, Selection[i].Y - FixedRows);
+      end;
+    end;
+    Worksheet.SetSelection(SelectedCells);
+    Worksheet.SelectCell(Row - FixedRows, Col - FixedCols);
+    //
+    ExclIdx := -1;
+    TextIdx := -1;
+    Data := GetFromClip(0);
+    for i := 0 to High(Data) do
+    begin
+      if (Data[i].Typ = MAKE_ID('OXML')) and (Data[i].BufferSize > 0) then
+        ExclIdx := i;
+      if (Data[i].Typ = ID_FTXT) and (Data[i].BufferSize > 0) then
+        TextIdx := i;
+    end;
+    if ExclIdx >= 0 then
+    begin
+      MS.Clear;
+      MS.Write(Data[ExclIdx].Buffer^, Data[ExclIdx].BufferSize);
+      Workbook.PasteFromClipboardStream(MS, sfOOXML, coCopyCell);
+    end
+    else if TextIdx >= 0 then
+    begin
+      MS.Clear;
+      Text := PChar(Data[TextIdx].Buffer);
+      Text := stringreplace(Text, #9, ';', [rfReplaceAll]);
+
+      MS.Write(Text[1], Length(Text));
+      Workbook.PasteFromClipboardStream(MS, sfCSV, coCopyCell);
+    end;
+    EndUpdate;
+  finally
+    MS.Free;
+  end;
+end;
+
+initialization
+  RegisterClipType(MAKE_ID('OXML'), MAKE_ID('BODY'));
 end.
