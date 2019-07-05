@@ -22,6 +22,7 @@ type
     FFilename: string;
     FMinCols: Integer;
     FMinRows: Integer;
+    RTGMode: Boolean;
     function GetCellText(ACol, ARow: Integer; ATrim: Boolean = true): String;
     procedure SetCellValue(ACol, ARow: Integer; AValue: Variant);
     function GetWorksheetCount: Integer;
@@ -90,6 +91,20 @@ implementation
 uses
   TCDReaderUnit, clipunit;
 
+function CalcSelectionColor(c: TsColor; ADelta: Byte) : TsColor;
+begin
+  TRGBA(Result).A := 0;
+  if TRGBA(c).R < 128
+    then TRGBA(Result).R := TRGBA(c).R + ADelta
+    else TRGBA(Result).R := TRGBA(c).R - ADelta;
+  if TRGBA(c).G < 128
+    then TRGBA(Result).G := TRGBA(c).G + ADelta
+    else TRGBA(Result).G := TRGBA(c).G - ADelta;
+  if TRGBA(c).B < 128
+    then TRGBA(Result).B := TRGBA(c).B + ADelta
+    else TRGBA(Result).B := TRGBA(c).B - ADelta;
+end;
+
 function DrawBorder2CellBorder(c: TDrawBorders): TsCellBorders;
 begin
   Result := [];
@@ -112,6 +127,7 @@ begin
   FShowHeaders := True;
   FHeaderCount := 1;
   NewWorkbook;
+  RTGMode := GetBitMapAttr(@(IntuitionBase^.ActiveScreen^.Bitmap), BMA_DEPTH) > 8;
 end;
 
 
@@ -792,9 +808,11 @@ var
   NStyle: LongWord;
   BGColor: TsColor;
   f: Double;
+  TempPen: LongInt;
 begin
   Pen := -1;
   BGPen := -1;
+  TempPen := -1;
   FShowFormulas := False;
   CS := CellStatus[ACol, ARow];
   if EditMode and (CS = csFocussed) then
@@ -888,7 +906,14 @@ begin
   SetDrMd(RP, JAM1);
   if (CS = csSelected) then
   begin
-    SetAPen(RP, 3);
+    if RTGMode and ((BGColor and $FFFFFF) <> 0) then
+    begin
+      BGColor := CalcSelectionColor(BGColor, 64);
+      TempPen := ObtainBestPenA(IntuitionBase^.ActiveScreen^.ViewPort.ColorMap, (BGColor and $ff) shl 24, (BGColor and $ff00) shl 16, (BGColor and $ff0000) shl 8, nil);
+      SetAPen(RP, TempPen);
+    end
+    else
+      SetAPen(RP, 3);
     RectFill(RP, ARect.Left, ARect.Top, ARect.Right, ARect.Bottom);
     SetAPen(RP, 0);
     GfxMove(RP, ARect.Left, ARect.Bottom);
@@ -952,7 +977,8 @@ begin
     ReleasePen(ViewPortAddress(IntuitionBase^.ActiveWindow)^.ColorMap, Pen);
   if BGPen >= 0 then
     ReleasePen(ViewPortAddress(IntuitionBase^.ActiveWindow)^.ColorMap, BGPen);
-
+  if TempPen >= 0 then
+    ReleasePen(ViewPortAddress(IntuitionBase^.ActiveWindow)^.ColorMap, TempPen);
   FShowFormulas := True;
 end;
 

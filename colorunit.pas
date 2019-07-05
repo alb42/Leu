@@ -202,7 +202,8 @@ begin
   Grp2.Parent := Grp;
   Grp2.Columns := 16;
 
-  Depth := Min(8, IntuitionBase^.ActiveScreen^.Bitmap.Depth);
+  Depth := GetBitMapAttr(@(IntuitionBase^.ActiveScreen^.Bitmap), BMA_DEPTH);
+  Depth := Min(8, Depth);
 
   Depth := 2 ** Depth;
   SetLength(Buttons, Depth);
