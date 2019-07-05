@@ -906,7 +906,7 @@ begin
   SetDrMd(RP, JAM1);
   if (CS = csSelected) then
   begin
-    if RTGMode and ((BGColor and $FFFFFF) <> 0) then
+    if RTGMode and ((BGColor and $FF000000) = 0) then
     begin
       BGColor := CalcSelectionColor(BGColor, 64);
       TempPen := ObtainBestPenA(IntuitionBase^.ActiveScreen^.ViewPort.ColorMap, (BGColor and $ff) shl 24, (BGColor and $ff00) shl 16, (BGColor and $ff0000) shl 8, nil);
