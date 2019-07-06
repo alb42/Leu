@@ -84,10 +84,14 @@ begin
   FD.SaveMode := False;
   FD.TitleText := 'Select Spreadsheet file to load';
   FD.Pattern := '#?.(ods|xls|xlsx|csv|tcd|html|wikitable_pipes|wikitable_wikimedia)';
+  if SG.FileName <> '' then
+    FD.Directory := ExtractFilePath(SG.Filename)
+  else
+    FD.Directory := 'PROGDIR:';
   if FD.Execute then
   begin
     try
-      SG.LoadFile(FD.FileName);
+      LoadFile(FD.FileName);
     except
       on e: Exception do
       begin
@@ -109,6 +113,10 @@ begin
   FD.SaveMode := True;
   FD.TitleText := 'Select file name to save';
   FD.Pattern := '#?.(ods|xls|xlsx|csv|html|wikitable_pipes|wikitable_wikimedia)';
+  if SG.FileName <> '' then
+    FD.Directory := ExtractFilePath(SG.Filename)
+  else
+    FD.Directory := 'PROGDIR:';
   if FD.Execute then
   begin
     try
