@@ -809,6 +809,8 @@ var
   BGColor: TsColor;
   f: Double;
   TempPen: LongInt;
+  SL: TStringList;
+  TH, I: Integer;
 begin
   Pen := -1;
   BGPen := -1;
@@ -931,12 +933,6 @@ begin
     else
       SetAPen(RP, 1);
   end;
-  TextExtent(RP, PChar(s), Length(s), @TE);
-  case horAlign of
-    haLeft: GfxMove(RP, ARect.Left + 1, ARect.Top + ARect.Height div 2 + RP^.Font^.tf_Baseline div 2);
-    haCenter: GfxMove(RP, (ARect.Left + ARect.Width div 2) - (TE.te_Width div 2), ARect.Top + ARect.Height div 2 + RP^.Font^.tf_Baseline div 2);
-    haRight: GfxMove(RP, ARect.Right - TE.te_Width - 1, ARect.Top + ARect.Height div 2 + RP^.Font^.tf_Baseline div 2);
-  end;
   if Assigned(fnt) then
   begin
     fst := AskSoftStyle(RP);
@@ -946,7 +942,28 @@ begin
     if fssUnderline in fnt.Style then NStyle := NStyle or FSF_UNDERLINED;
     SetSoftStyle(RP, fst, NStyle);
   end;
-  GfxText(RP, PChar(s), Length(s));
+  // Print the actual text, multiline
+  SL := TStringList.Create;
+  SL.Text := s;
+  TextExtent(RP, PChar(s), Length(s), @TE);
+  TH := ARect.Top + ARect.Height div 2;
+  TH := TH - ((SL.Count  - 1) * TE.te_Height) div 2;
+  if TH < ARect.Top + 5 then
+    TH := ARect.Top + 5;
+  TH := TH + RP^.Font^.tf_Baseline div 2;
+
+  for i := 0 to SL.Count - 1 do
+  begin
+    s := SL[i];
+    TextExtent(RP, PChar(s), Length(s), @TE);
+    case horAlign of
+      haLeft: GfxMove(RP, ARect.Left + 1, TH + i * TE.te_Height);
+      haCenter: GfxMove(RP, (ARect.Left + ARect.Width div 2) - (TE.te_Width div 2), TH + i * TE.te_Height);
+      haRight: GfxMove(RP, ARect.Right - TE.te_Width - 1, TH + i * TE.te_Height);
+    end;
+    GfxText(RP, PChar(s), Length(s));
+  end;
+  SL.Free;
   SetSoftStyle(RP, 0, fst);
 
   DrawCellBorders(RP, ACol, ARow, ARect, Cell);
