@@ -3,7 +3,7 @@ unit FormatWinUnit;
 interface
 uses
   Classes, SysUtils,
-  locale,
+  locale, intuition, agraphics, MUI,
   fgl,
   fpstypes, fpsnumformat,
   typinfo, Math,
@@ -12,12 +12,15 @@ uses
   MUIClass.Window,
   MUIClass.Gadget,
   MUIClass.Group,
-  OfficeGridUnit;
+  MUIClass.Image,
+  MUIClass.DrawPanel,
+  OfficeGridUnit,
+  Types;
 
 const
-  NumFormats = 8;
-  FormatTypes: array[0..NumFormats - 1] of TsNumberFormat = (nfFixed, nfPercentage, nfCurrency, nfLongDate, nfLongTime, nfExp, nfCustom, nfText);
-  FormatStrings: array[0..NumFormats - 1] of string = ('Fixed', 'Percentage', 'Currency', 'Date', 'Time', 'Exponential', 'Boolean', 'Text');
+  NumFormats = 9;
+  FormatTypes: array[0..NumFormats - 1] of TsNumberFormat = (nfFixed, nfPercentage, nfCurrency, nfLongDate, nfLongTime, nfExp, nfFraction, nfCustom, nfText);
+  FormatStrings: array[0..NumFormats - 1] of string = ('Fixed', 'Percentage', 'Currency', 'Date', 'Time', 'Exponential', 'Fractional', 'Custom', 'Text');
 
 
   FixedFormats: string = ''#10'0'#10'0.00'#10'#,##0'#10'#,##0.00'#10'#,###.00'#10'#,##0_);(#,##0)'#10'#,##0.00_);(#,##0.00)';
@@ -34,7 +37,7 @@ const
   TimeFormats: string = 'HH:MM'#10'HH:MM:SS'#10'HH:MM AM/PM'#10'HH:MM:SS AM/PM';
   ExpFormats: string = '0.00E+000'#10'0.00E+00'#10'0.0000E+00'#10'##0.00E+00';
   FracFormats: string = '# ?/?'#10'# ??/??'#10'# ???/???'#10'# ?/2'#10'# ?/4'#10'# ?/10'#10'# ??/100'#10'# ???/1000';
-  BoolFormats: string = 'BOOLEAN';
+  BoolFormats: string = ' ';
   TextFormats: string = '@';
 
 type
@@ -59,22 +62,36 @@ type
     SubFormatList: TMUiStringGrid;
     FormatEdit: TMUIString;
     SubFormats: TStringList;
+    OKButton: TMUIButton;
+    CancelButton: TMUIButton;
+    Preview: TMUIBitmap;
+    DB: TDrawBuffer;
 
-    function GetExampleText(FmtStr: string): string;
+    function GetExampleText(FmtStr: string; Dummy: Boolean): string;
     procedure ClickEvent(Sender: TObject);
     procedure ClickFormatEvent(Sender: TObject);
     procedure AckEdit(Sender: TObject);
+    procedure OKClick(Sender: TObject);
+    procedure CancelClick(Sender: TObject);
   public
     SG: TOfficeGrid;
     Cell: TPoint;
+    OrgValue: Double;
+    OrgText: string;
+    SelectedCells: TsCellRangeArray;
     NewFmt: TsNumberFormat;
     constructor Create; override;
     destructor Destroy; override;
+
+    function Execute: Boolean;
   end;
 
 var
   FormatWin: TFormatWin;
 implementation
+
+uses
+  fpsutils;
 
 var
   DefMoneySymb: string = '$';
@@ -122,9 +139,47 @@ begin
   Grp.Horiz := True;
   Grp.Parent := Self;
 
+  with TMUIRectangle.Create do
+   Parent := Grp;
+
+  Preview := TMUIBitmap.Create;
+  With Preview do
+  begin
+    FixWidth := 200;
+    FixHeight := 20;
+    Width := FixWidth;
+    Height := FixHeight;
+    DB := TDrawBuffer.Create(FixWidth, FixHeight, 8, nil);
+    DB.Clear(2);
+    Bitmap := DB.RP^.Bitmap;
+    Parent := Grp;
+  end;
+
+  with TMUIRectangle.Create do
+   Parent := Grp;
+
+  Grp := TMUIGroup.Create;
+  Grp.Horiz := True;
+  Grp.Parent := Self;
+
   FormatEdit := TMUIString.Create;
   FormatEdit.OnAcknowledge := @AckEdit;
   FormatEdit.Parent := Grp;
+
+  Grp := TMUIGroup.Create;
+  Grp.Horiz := True;
+  Grp.Parent := Self;
+
+  OKButton := TMUIButton.Create('OK');
+  OKButton.OnClick := @OKClick;
+  OKButton.Parent := Grp;
+
+  with TMUIRectangle.Create do
+   Parent := Grp;
+
+  CancelButton := TMUIButton.Create('Cancel');
+  CancelButton.OnClick := @CancelClick;
+  CancelButton.Parent := Grp;
 
   {SL:= TStringList.Create;
   BuildCurrencyFormatList(SL, False, 12.34, DefMoneySymb);
@@ -136,11 +191,62 @@ end;
 destructor TFormatWin.Destroy;
 begin
   SubFormats.Free;
+  DB.Free;
   inherited;
 end;
 
+function TFormatWin.Execute: Boolean;
+var
+  i: Integer;
+  fmt: TsCellFormat;
+begin
+  Cell := Point(SG.Col, SG.Row);
+  SetLength(SelectedCells, 1);
+  with SG do
+  begin
+    SelectedCells[0].Col1 := Col - FixedCols;
+    SelectedCells[0].Col2 := Col - FixedCols;
+    SelectedCells[0].Row1 := Row - FixedRows;
+    SelectedCells[0].Row2 := Row - FixedRows;
+    for i := 0 to SelectionCount - 1 do
+    begin
+      SelectedCells[0].Col1 := Min(SelectedCells[0].Col1, Selection[i].X - FixedCols);
+      SelectedCells[0].Col2 := Max(SelectedCells[0].Col2, Selection[i].X - FixedCols);
+      SelectedCells[0].Row1 := Min(SelectedCells[0].Row1, Selection[i].Y - FixedRows);
+      SelectedCells[0].Row2 := Max(SelectedCells[0].Row2, Selection[i].Y - FixedRows);
+    end;
+    Worksheet.SetSelection(SelectedCells);
+  end;
+  if (SelectedCells[0].Col1 = SelectedCells[0].Col2) and (SelectedCells[0].Row1 = SelectedCells[0].Row2) then
+    Title := 'Format for ' + GetColString(Cell.X - SG.FixedCols) + IntToStr(Cell.Y)
+  else
+    Title := 'Format for ' + GetColString(SelectedCells[0].Col1 - SG.FixedCols) + IntToStr(SelectedCells[0].Row1) + ':' + GetColString(SelectedCells[0].Col2 - SG.FixedCols) + IntToStr(SelectedCells[0].Row2);
+  OrgValue := SG.Worksheet.ReadAsNumber(SG.Row - 1, SG.Col - 1);
+  OrgText := SG.Worksheet.ReadAsText(SG.Row - 1, SG.Col - 1);
+  try
+    fmt := SG.Workbook.GetCellFormat(SG.Worksheet.GetCell(SG.Row - 1, SG.Col - 1)^.FormatIndex);
+    case fmt.NumberFormat of
+      nfFixed, nfFixedTh, nfGeneral: FormatList.Row := 0;
+      nfPercentage: FormatList.Row := 1;
+      nfCurrency, nfCurrencyRed: FormatList.Row := 2;
+      nfExp: FormatList.Row := 5;
+      nfShortDateTime, nfShortDate, nfLongDate, nfDayMonth, nfMonthYear: FormatList.Row := 3;
+      nfShortTime, nfLongTime, nfShortTimeAM, nfLongTimeAM, nfTimeInterval: FormatList.Row := 4;
+      nfFraction: FormatList.Row := 6;
+      nfText: FormatList.Row := 8;
+      else
+        FormatList.Row := 7;
+    end;
+    ClickEvent(FormatList);
+    FormatEdit.Contents := fmt.NumberFormatStr;
+  except
+  end;
+  Result := True;
+  Show;
+end;
 
-function TFormatWin.GetExampleText(FmtStr: string): string;
+
+function TFormatWin.GetExampleText(FmtStr: string; Dummy: Boolean): string;
 var
   parser: TsNumFormatParser;
   mClass: TsNumFormatParams;
@@ -153,13 +259,22 @@ begin
     SetLength(mClass.Sections, parser.ParsedSectionCount);
     for i:=0 to High(mClass.Sections) do
       mClass.Sections[i] := parser.ParsedSections[i];
-    if Parser.IsDateTimeFormat then
-      Result := ConvertFloatToStr(Now(), mClass, SG.Workbook.FormatSettings)
+    if Dummy then
+    begin
+      if Parser.IsDateTimeFormat then
+        Result := ConvertFloatToStr(Now(), mClass, SG.Workbook.FormatSettings)
+      else
+        Result := ConvertFloatToStr(-123.456, mClass, SG.Workbook.FormatSettings);
+      if Pos('RED', FmtStr) > 0 then
+        Result := #27'b' +  Result;
+    end
     else
-      Result := ConvertFloatToStr(-123.456, mClass, SG.Workbook.FormatSettings);
-    if Pos('RED', FmtStr) > 0 then
-      Result := #27'b' +  Result;
-
+    begin
+      if isNan(OrgValue) then
+        Result := OrgText
+      else
+        Result := ConvertFloatToStr(OrgValue, mClass, SG.Workbook.FormatSettings);
+    end;
   finally
     parser.Free;
     mClass.Free;
@@ -170,6 +285,8 @@ procedure TFormatWin.ClickEvent(Sender: TObject);
 var
   i: Integer;
 begin
+  if (FormatList.Row < 0) or (FormatList.Row > High(FormatTypes)) then
+    Exit;
   NewFmt := FormatTypes[FormatList.Row];
   SubFormats.Clear;
   case NewFmt of
@@ -179,8 +296,11 @@ begin
     nfLongDate: SubFormats.Text := DateFormats;
     nfLongTime: SubFormats.Text := TimeFormats;
     nfExp: SubFormats.Text := ExpFormats;
+    nfFraction: SubFormats.Text := FracFormats;
     nfCustom: SubFormats.Text := BoolFormats;
     nfText: SubFormats.Text := TextFormats;
+    else
+      SubFormats.Text :=  ' ';
   end;
   SubFormatList.NumRows := SubFormats.Count;
   SubFormatList.Quiet := True;
@@ -193,7 +313,7 @@ begin
     for i := 0 to SubFormats.Count - 1 do
     begin
       SubFormats[i] := stringreplace(SubFormats[i], '$', '$' + DefMoneySymb, [rfReplaceAll]);
-      SubFormatList.Cells[0, i] := GetExampleText(SubFormats[i]);
+      SubFormatList.Cells[0, i] := GetExampleText(SubFormats[i], True);
     end;
   end;
   SubFormatList.Quiet := False;
@@ -212,9 +332,56 @@ begin
 end;
 
 procedure TFormatWin.AckEdit(Sender: TObject);
+var
+  str: string;
+  Pen: LongInt;
 begin
-  SG.Worksheet.WriteNumberFormat(Cell.Y - 1, Cell.X - 1, NewFmt, FormatEdit.Contents);
-  SG.RedrawCell(Cell.X, Cell.Y);
+  // make preview
+  str := GetExampleText(FormatEdit.Contents, False);
+  DB.Clear(2);
+  Pen := -1;
+  if Pos('RED', FormatEdit.Contents) > 0 then
+  begin
+    Pen := ObtainBestPenA(IntuitionBase^.ActiveScreen^.ViewPort.ColorMap, $ff000000, 0, 0, nil);
+    SetAPen(DB.RP, Pen);
+  end
+  else
+    SetAPen(DB.RP, 1);
+  SetDrMd(DB.RP, JAM1);
+  DB.DrawText(5, 12, str);
+  if Pen >= 0 then
+    ReleasePen(IntuitionBase^.ActiveScreen^.ViewPort.ColorMap, Pen);
+  MUI_Redraw(Preview.MUIObj, MADF_DRAWOBJECT);
+end;
+
+procedure TFormatWin.OKClick(Sender: TObject);
+var
+  x,y: Integer;
+begin
+
+  if (SelectedCells[0].Col1 = SelectedCells[0].Col2) and (SelectedCells[0].Row1 = SelectedCells[0].Row2) then
+  begin
+    SG.Worksheet.WriteNumberFormat(Cell.Y - 1, Cell.X - 1, NewFmt, FormatEdit.Contents);
+    SG.RedrawCell(Cell.X, Cell.Y);
+  end
+  else
+  begin
+    for x := SelectedCells[0].Col1 to SelectedCells[0].Col2 do
+    begin
+      for y := SelectedCells[0].Row1 to SelectedCells[0].Row2 do
+      begin
+        SG.Worksheet.WriteNumberFormat(Y, X, NewFmt, FormatEdit.Contents);
+        SG.RedrawCell(X, Y);
+      end;
+    end;
+  end;
+  //
+  Close;
+end;
+
+procedure TFormatWin.CancelClick(Sender: TObject);
+begin
+  Close;
 end;
 
 procedure GetLocaleSettings;

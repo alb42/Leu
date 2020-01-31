@@ -3,6 +3,9 @@ program Leu;
 uses
   Types, Classes, SysUtils, intuition, agraphics, mui,
   Math,
+  {$ifdef Amiga68k}
+  exec,
+  {$endif}
   OfficeGridUnit,
   MUIClass.Base,
   MUIClass.Window,
@@ -14,7 +17,7 @@ uses
   MUIClass.Menu,
   MUIClass.Dialog,
   MUIClass.DrawPanel,
-  imagesunit, colorunit,
+  imagesunit, colorunit, FormatWinUnit,
   fpstypes, fpspreadsheet, fpsutils, fpsnumformat,
   variants, SetSizeUnit;
 
@@ -31,6 +34,7 @@ type
     procedure MenuCut(Sender: TObject); // Cut
     procedure MenuPaste(Sender: TObject); // Paste
     procedure MenuDelete(Sender: TObject); // Delete
+    procedure MenuFormat(Sender: TObject); // Format
 
     //
     procedure SetSizeEvent(Sender: TObject);
@@ -175,10 +179,22 @@ begin
   SG.DeleteSelectedCells;
 end;
 
+procedure TMyWindow.MenuFormat(Sender: TObject);
+begin
+  Unused(Sender);
+  if FormatWin.Open then
+    FormatWin.Close;
+  FormatWin.SG := SG;
+  FormatWin.Execute;
+end;
+
+
 procedure TMyWindow.SetClick(Sender: TObject);
 begin
   Unused(Sender);
   SG.Cells[SG.Col, SG.Row] := WText.Contents;
+  //SG.Worksheet.WriteNumberFormat(SG.Row - 1, SG.Col - 1, nfExp);
+
   SG.Row := SG.Row + 1;
   SG.SelectAll(False);
 end;
@@ -569,6 +585,15 @@ begin
     Parent := EditMenu;
   end;
 
+  with TMUIMenuItem.Create do
+  begin
+    Title := 'Format';
+    //ShortCut := 'Delete';
+    //CommandString := True;
+    OnTrigger := @MenuFormat;
+    Parent := EditMenu;
+  end;
+
   //
 
   HeadGroup := TMUIGroup.Create;
@@ -747,11 +772,31 @@ begin
   MenuNew(nil);
 end;
 
+{$ifdef Amiga68k}
+const
+  AFF_68080 = 1 shl 10;
+{$endif}
 procedure StartMe;
 begin
+  {$ifdef Amiga68k}
+  if (PExecBase(AOS_ExecBase)^.AttnFlags and AFF_68080) <> 0then
+  begin
+    Writeln('Anti-Coffin copy-protection, blocking Vampire.');
+    halt(0);
+  end;
+  {$endif}
+
   // Create a Window, with a title bar text
   Win := TMyWindow.Create;
   SetSizeWin := TSetSizeWin.Create;
+  FormatWin := TFormatWin.Create;
+
+  MUIApp.Title := 'LEU';
+  MUIApp.Version := '$VER: LEU 0.08 (26.11.2019)';
+  MUIApp.Copyright := 'CC0';
+  MUIApp.Author := 'Marcus "ALB42" Sackrow';
+  MUIApp.Description := 'Simple Spreadsheet.';
+  MUIApp.Base := 'LEU';
 
   if ParamCount > 0 then
   begin
@@ -766,12 +811,7 @@ begin
     end;
   end;
 
-  MUIApp.Title := 'LEU';
-  MUIApp.Version := '$VER: LEU 0.07 (05.07.2019)';
-  MUIApp.Copyright := 'CC0';
-  MUIApp.Author := 'Marcus "ALB42" Sackrow';
-  MUIApp.Description := 'Simple Spreadsheet.';
-  MUIApp.Base := 'LEU';
+
 
   MUIApp.Run;
 end;
