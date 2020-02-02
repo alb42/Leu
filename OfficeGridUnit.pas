@@ -62,6 +62,8 @@ type
     procedure LoadFile(AFileName: string);
     procedure SaveFile(AFileName: string);
     procedure LoadWorksheet(Idx: Integer);
+    procedure AddWorksheet();
+    procedure RemoveWorksheet();
 
     procedure CopyToClip; override;
     procedure CutToClip; override;
@@ -397,26 +399,42 @@ begin
   if not Assigned(FWorksheet) then
     Exit;
   FWorksheet.OnChangeCell := @ChangedCellHandler;
-  MaxR := FMinRows;
-  MaxC := FMinCols;
+  MaxR := NumRows;
+  MaxC := NumCols;
   for Cell in FWorksheet.Cells do
   begin
     MaxR := Max(Cell^.Row, MaxR);
     MaxC := Max(Cell^.Col, MaxC);
   end;
-
-  BeginUpdate;
-  BlockRecalcSize := True;
-  try
-  NumRows := MaxR + 2;
-  NumCols := MaxC + 2;
-
-  finally
-    BlockRecalcSize := False;
-    RecalcSize;
-    EndUpdate;
+  if (MaxR <> NumRows) or (MaxC <> NumCols) then
+  begin
+		BeginUpdate;
+		BlockRecalcSize := True;
+		try
+			NumRows := MaxR;
+			NumCols := MaxC;
+		finally
+			BlockRecalcSize := False;
+			RecalcSize;
+			EndUpdate;
+		end;
   end;
+  RedrawAllCells;
 end;
+
+procedure TOfficeGrid.AddWorksheet();
+begin
+  FWorksheet := FWorkBook.AddWorkSheet('New Worksheet', True);
+  FWorksheet.OnChangeCell := @ChangedCellHandler;
+  RedrawAllCells;
+end;
+
+procedure TOfficeGrid.RemoveWorksheet();
+begin
+  FWorkBook.RemoveWorkSheet(FWorksheet);
+  LoadWorkSheet(-1);
+end;
+
 
 procedure TOfficeGrid.LoadFile(AFileName: string);
 begin

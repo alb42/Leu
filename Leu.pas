@@ -35,6 +35,9 @@ type
     procedure MenuPaste(Sender: TObject); // Paste
     procedure MenuDelete(Sender: TObject); // Delete
     procedure MenuFormat(Sender: TObject); // Format
+    procedure MenuAddSheet(Sender: TObject); // Add Sheet
+    procedure MenuRemoveSheet(Sender: TObject); // Remove Sheet
+
 
     //
     procedure SetSizeEvent(Sender: TObject);
@@ -50,6 +53,8 @@ type
     procedure SetClick(Sender: TObject);
     procedure ChangeWorksheet(Sender: TObject);
     procedure DblClick(Sender: TObject);
+    
+    procedure UpdateTitles;
   public
     BlockEvents: Boolean;
     WColRow: TMUIText;
@@ -66,34 +71,60 @@ type
 var
   Win: TMyWindow;     // Window
 
+procedure TMyWindow.UpdateTitles;
+begin
+  // set a new title
+  Title := 'LEU <' + ExtractFileName(SG.FileName) + '> Columns:' + IntToStr(SG.NumCols) + ' Rows:' + IntToStr(SG.NumRows);
+  SheetName.Contents := IntToStr(SG.WorksheetIdx + 1) + '/' + IntToStr(SG.WorksheetCount) + '  (' + SG.Worksheet.Name + ')' ;
+  PrevSheet.Disabled := SG.WorksheetIdx <= 0;
+  NextSheet.Disabled := SG.WorksheetIdx >= SG.WorksheetCount - 1;
+  if SG.Row >= 0 then
+  begin
+    WColRow.Contents := GetColString(SG.Col - SG.FixedCols) + IntToStr(SG.Row);
+    WText.Contents := SG.Cells[SG.Col, SG.Row];
+  end
+  else
+  begin
+    WColRow.Contents := '';
+    WText.Contents := '';
+  end;    
+end;
+
+
+// Make a new empty Spreadsheet, remove everything
 procedure TMyWindow.MenuNew(Sender: TObject);
 begin
   Unused(Sender);
+  // just pass on to SG
   SG.NewWorkbook;
-  Title := 'LEU <> Columns:' + IntToStr(SG.NumCols) + ' Rows:' + IntToStr(SG.NumRows);
+  // init some Texts
   WColRow.Contents := '';
   WText.Contents := '';
-  SheetName.Contents := IntToStr(SG.WorksheetIdx + 1) + '(' + SG.Worksheet.Name + ') /' + IntToStr(SG.WorksheetCount);
-  PrevSheet.Disabled := SG.WorksheetIdx <= 0;
-  NextSheet.Disabled := SG.WorksheetIdx >= SG.WorksheetCount;
+  UpdateTitles;
 end;
 
+// Load from file
 procedure TMyWindow.MenuLoad(Sender: TObject);
 var
   FD: TFileDialog;
 begin
   Unused(Sender);
+  // file dialog for file open
   FD := TFileDialog.Create;
   FD.MultiSelect := False;
   FD.SaveMode := False;
   FD.TitleText := 'Select Spreadsheet file to load';
+  // all our
   FD.Pattern := '#?.(ods|xls|xlsx|csv|tcd|html|wikitable_pipes|wikitable_wikimedia)';
+  // old File name, set it again, or just use progdir
   if SG.FileName <> '' then
     FD.Directory := ExtractFilePath(SG.Filename)
   else
     FD.Directory := 'PROGDIR:';
+  // do it  
   if FD.Execute then
   begin
+    // try to load
     try
       LoadFile(FD.FileName);
     except
@@ -107,6 +138,7 @@ begin
   FD.Free;
 end;
 
+// Save the File
 procedure TMyWindow.MenuSave(Sender: TObject);
 var
   FD: TFileDialog;
@@ -125,12 +157,7 @@ begin
   begin
     try
       SG.SaveFile(FD.FileName);
-      Title := 'LEU <'+ExtractFileName(FD.FileName)+'> Columns:' + IntToStr(SG.NumCols) + ' Rows:' + IntToStr(SG.NumRows);
-      WColRow.Contents := '';
-      WText.Contents := '';
-      SheetName.Contents := IntToStr(SG.WorksheetIdx + 1) + '(' + SG.Worksheet.Name + ') /' + IntToStr(SG.WorksheetCount);
-      PrevSheet.Disabled := SG.WorksheetIdx <= 0;
-      NextSheet.Disabled := SG.WorksheetIdx >= SG.WorksheetCount;
+      UpdateTitles;
     except
       on e: Exception do
       begin
@@ -141,6 +168,19 @@ begin
   FD.Free;
 end;
 
+procedure TMyWindow.MenuAddSheet(Sender: TObject);
+begin
+  SG.AddWorkSheet;
+  UpdateTitles;
+end;
+
+procedure TMyWindow.MenuRemoveSheet(Sender: TObject);
+begin
+  SG.RemoveWorkSheet;
+  UpdateTitles;
+end;
+
+// Set Size of this sheet
 procedure TMyWindow.MenuSetSize(Sender: TObject);
 begin
   Unused(Sender);
@@ -148,6 +188,7 @@ begin
   SetSizeWin.OnAutoSize := @AutoColsRowsEvent;
   SetSizeWin.ShowWindow(SG.NumCols, SG.NumRows);
 end;
+
 
 procedure TMyWindow.MenuQuit(Sender: TObject);
 begin
@@ -203,12 +244,7 @@ function TMyWindow.LoadFile(AFileName: string): Boolean;
 begin
   Result := True;
   SG.LoadFile(AFileName);
-  Title := 'LEU <'+ExtractFileName(AFileName)+'> Columns:' + IntToStr(SG.NumCols) + ' Rows:' + IntToStr(SG.NumRows);
-  WColRow.Contents := '';
-  WText.Contents := '';
-  SheetName.Contents := IntToStr(SG.WorksheetIdx + 1) + '(' + SG.Worksheet.Name + ') /' + IntToStr(SG.WorksheetCount);
-  PrevSheet.Disabled := SG.WorksheetIdx <= 0;
-  NextSheet.Disabled := SG.WorksheetIdx >= SG.WorksheetCount;
+  UpdateTitles;
 end;
 
 procedure TMyWindow.ChangeWorksheet(Sender: TObject);
@@ -223,10 +259,7 @@ begin
   if Sender = NextSheet then
     Idx := SG.WorksheetIdx + 1;
   SG.LoadWorksheet(Idx);
-  SheetName.Contents := IntToStr(SG.WorksheetIdx + 1) + '(' + SG.Worksheet.Name + ') /' + IntToStr(SG.WorksheetCount);
-  PrevSheet.Disabled := SG.WorksheetIdx <= 0;
-  NextSheet.Disabled := SG.WorksheetIdx >= SG.WorksheetCount;
-  Title := 'LEU <'+ExtractFileName(SG.FileName)+'> Columns:' + IntToStr(SG.NumCols) + ' Rows:' + IntToStr(SG.NumRows);
+  UpdateTitles;
 end;
 
 procedure TMyWindow.DblClick(Sender: TObject);
@@ -239,6 +272,7 @@ procedure TMyWindow.SetSizeEvent(Sender: TObject);
 begin
   Unused(Sender);
   SG.SetSize(SetSizeWin.Columns, SetSizeWin.Rows);
+  UpdateTitles;
 end;
 
 procedure TMyWindow.AutoColsRowsEvent(Sender: TObject);
@@ -525,12 +559,47 @@ begin
     OnTrigger := @MenuSave;
     Parent := ProjectMenu;
   end;
+  
+  with TMUIMenuItem.Create do
+  begin
+    Title := '-';
+    Parent := ProjectMenu;
+  end;
+  
+  with TMUIMenuItem.Create do
+  begin
+    Title := 'Add Sheet';
+    //ShortCut := '';
+    OnTrigger := @MenuAddSheet;
+    Parent := ProjectMenu;
+  end;
+  
+  with TMUIMenuItem.Create do
+  begin
+    Title := 'Remove Sheet';
+    //ShortCut := '';
+    OnTrigger := @MenuRemoveSheet;
+    Parent := ProjectMenu;
+  end;
+
+  
+  with TMUIMenuItem.Create do
+  begin
+    Title := '-';
+    Parent := ProjectMenu;
+  end;
 
   with TMUIMenuItem.Create do
   begin
     Title := 'Set Size...';
     ShortCut := 'L';
     OnTrigger := @MenuSetSize;
+    Parent := ProjectMenu;
+  end;
+  
+  with TMUIMenuItem.Create do
+  begin
+    Title := '-';
     Parent := ProjectMenu;
   end;
 
@@ -588,7 +657,7 @@ begin
   with TMUIMenuItem.Create do
   begin
     Title := 'Format';
-    //ShortCut := 'Delete';
+    ShortCut := 'F';
     //CommandString := True;
     OnTrigger := @MenuFormat;
     Parent := EditMenu;
@@ -779,7 +848,7 @@ const
 procedure StartMe;
 begin
   {$ifdef Amiga68k}
-  if (PExecBase(AOS_ExecBase)^.AttnFlags and AFF_68080) <> 0then
+  if (PExecBase(AOS_ExecBase)^.AttnFlags and AFF_68080) <> 0 then
   begin
     Writeln('Anti-Coffin copy-protection, blocking Vampire.');
     halt(0);
