@@ -18,6 +18,7 @@ uses
   MUIClass.Dialog,
   MUIClass.DrawPanel,
   imagesunit, colorunit, FormatWinUnit,
+  AskTextUnit,
   fpstypes, fpspreadsheet, fpsutils, fpsnumformat,
   variants, SetSizeUnit;
 
@@ -37,8 +38,7 @@ type
     procedure MenuFormat(Sender: TObject); // Format
     procedure MenuAddSheet(Sender: TObject); // Add Sheet
     procedure MenuRemoveSheet(Sender: TObject); // Remove Sheet
-
-
+    procedure MenuRenameSheet(Sender: TObject); // Rename Sheet
     //
     procedure SetSizeEvent(Sender: TObject);
     procedure AutoColsRowsEvent(Sender: TObject);
@@ -53,7 +53,7 @@ type
     procedure SetClick(Sender: TObject);
     procedure ChangeWorksheet(Sender: TObject);
     procedure DblClick(Sender: TObject);
-    
+
     procedure UpdateTitles;
   public
     BlockEvents: Boolean;
@@ -87,7 +87,7 @@ begin
   begin
     WColRow.Contents := '';
     WText.Contents := '';
-  end;    
+  end;
 end;
 
 
@@ -121,7 +121,7 @@ begin
     FD.Directory := ExtractFilePath(SG.Filename)
   else
     FD.Directory := 'PROGDIR:';
-  // do it  
+  // do it
   if FD.Execute then
   begin
     // try to load
@@ -178,6 +178,15 @@ procedure TMyWindow.MenuRemoveSheet(Sender: TObject);
 begin
   SG.RemoveWorkSheet;
   UpdateTitles;
+end;
+
+procedure TMyWindow.MenuRenameSheet(Sender: TObject);
+begin
+  if AskTextWin.Execute('Select Sheet Title', 'New Sheet Title', SG.WorkSheet.Name) then
+  begin
+    SG.WorkSheet.Name := AskTextWin.Value;
+    UpdateTitles;
+  end;
 end;
 
 // Set Size of this sheet
@@ -559,13 +568,13 @@ begin
     OnTrigger := @MenuSave;
     Parent := ProjectMenu;
   end;
-  
+
   with TMUIMenuItem.Create do
   begin
     Title := '-';
     Parent := ProjectMenu;
   end;
-  
+
   with TMUIMenuItem.Create do
   begin
     Title := 'Add Sheet';
@@ -573,7 +582,7 @@ begin
     OnTrigger := @MenuAddSheet;
     Parent := ProjectMenu;
   end;
-  
+
   with TMUIMenuItem.Create do
   begin
     Title := 'Remove Sheet';
@@ -582,7 +591,15 @@ begin
     Parent := ProjectMenu;
   end;
 
-  
+  with TMUIMenuItem.Create do
+  begin
+    Title := 'Rename Sheet';
+    //ShortCut := '';
+    OnTrigger := @MenuRenameSheet;
+    Parent := ProjectMenu;
+  end;
+
+
   with TMUIMenuItem.Create do
   begin
     Title := '-';
@@ -596,7 +613,7 @@ begin
     OnTrigger := @MenuSetSize;
     Parent := ProjectMenu;
   end;
-  
+
   with TMUIMenuItem.Create do
   begin
     Title := '-';
@@ -859,6 +876,7 @@ begin
   Win := TMyWindow.Create;
   SetSizeWin := TSetSizeWin.Create;
   FormatWin := TFormatWin.Create;
+  AskTextWin := TAskTextWin.Create;
 
   MUIApp.Title := 'LEU';
   MUIApp.Version := '$VER: LEU 0.08 (26.11.2019)';
