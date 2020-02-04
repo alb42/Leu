@@ -23,6 +23,7 @@ type
     FMinCols: Integer;
     FMinRows: Integer;
     RTGMode: Boolean;
+    FChanged: Boolean;
     function GetCellText(ACol, ARow: Integer; ATrim: Boolean = true): String;
     procedure SetCellValue(ACol, ARow: Integer; AValue: Variant);
     function GetWorksheetCount: Integer;
@@ -33,7 +34,6 @@ type
     procedure SetHorAlignment(ACol, ARow: Integer; AValue: TsHorAlignment);
 
     procedure ChangedCellHandler(ASender: TObject; ARow, ACol:Cardinal);
-
   protected
     function GetCell(ACol, ARow: Integer): string; override;
     procedure SetCell(ACol, ARow: Integer; AValue: string); override;
@@ -84,6 +84,8 @@ type
 
     procedure SetCellBorder(ACol, ARow: Integer; AValue: TsCellBorders);
     procedure SetCellBorders(ALeft, ATop, ARight, ABottom: Integer; AValue: TsCellBorders);
+
+    property Changed: Boolean read FChanged write FChanged;
   end;
 
 function DrawBorder2CellBorder(c: TDrawBorders): TsCellBorders;
@@ -166,6 +168,7 @@ procedure TOfficeGrid.ChangedCellHandler(ASender: TObject; ARow, ACol:Cardinal);
 begin
   Unused(ASender);
   AddToRedraw(ACol + FixedCols, ARow + FixedRows);
+  FChanged := True;
 end;
 
 function TOfficeGrid.GetWorksheetCount: Integer;
@@ -408,16 +411,16 @@ begin
   end;
   if (MaxR <> NumRows) or (MaxC <> NumCols) then
   begin
-		BeginUpdate;
-		BlockRecalcSize := True;
-		try
-			NumRows := MaxR;
-			NumCols := MaxC;
-		finally
-			BlockRecalcSize := False;
-			RecalcSize;
-			EndUpdate;
-		end;
+    BeginUpdate;
+    BlockRecalcSize := True;
+    try
+      NumRows := MaxR;
+      NumCols := MaxC;
+    finally
+      BlockRecalcSize := False;
+      RecalcSize;
+      EndUpdate;
+    end;
   end;
   RedrawAllCells;
 end;
@@ -452,6 +455,7 @@ begin
     FWorkbook.ReadFromFile(AFilename);
   LoadWorksheet(-1); // load first Worksheet
   FFilename := AFilename;
+  Changed := False;
 end;
 
 procedure TOfficeGrid.SaveFile(AFileName: string);
@@ -461,6 +465,7 @@ begin
   if FFilename = '' then
     Exit;
   FWorkbook.WriteToFile(FFileName, True);
+  Changed := False;
 end;
 
 

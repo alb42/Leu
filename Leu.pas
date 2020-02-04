@@ -54,6 +54,9 @@ type
     procedure ChangeWorksheet(Sender: TObject);
     procedure DblClick(Sender: TObject);
 
+    procedure CloseReqEvent(Sender: TObject; var CloseAction: TCloseAction);
+
+
     procedure UpdateTitles;
   public
     BlockEvents: Boolean;
@@ -95,6 +98,13 @@ end;
 procedure TMyWindow.MenuNew(Sender: TObject);
 begin
   Unused(Sender);
+  if SG.Changed then
+  begin
+    case MessageBox('New Workbook', 'File not saved, save before new workbook?', ['Yes', 'No', 'Cancel']) of
+      1: MenuSave(nil);
+      3: Exit;
+    end;
+  end;
   // just pass on to SG
   SG.NewWorkbook;
   // init some Texts
@@ -109,6 +119,13 @@ var
   FD: TFileDialog;
 begin
   Unused(Sender);
+  if SG.Changed then
+  begin
+    case MessageBox('Load File', 'File not saved, save before load?', ['Yes', 'No', 'Cancel']) of
+      1: MenuSave(nil);
+      3: Exit;
+    end;
+  end;
   // file dialog for file open
   FD := TFileDialog.Create;
   FD.MultiSelect := False;
@@ -528,6 +545,19 @@ begin
   end;
 end;
 
+procedure TMYWindow.CloseReqEvent(Sender: TObject; var CloseAction: TCloseAction);
+begin
+  if SG.Changed then
+  begin
+    case MessageBox('Close Leu?', 'File not saved, save before quit?', ['Yes', 'No', 'Cancel']) of
+      1: begin MenuSave(nil); CloseAction := caClose; end;
+      3: CloseAction := caClose;
+      else
+        CloseAction := caNone;
+    end;
+  end;
+end;
+
 constructor TMyWindow.Create;
 var
   HeadGroup: TMUIGroup;
@@ -538,6 +568,7 @@ var
 begin
   inherited;
   BlockEvents := False;
+  OnCloseRequest := @CloseReqEvent;
 
   MenuStrip := TMUIMenuStrip.Create;
 
