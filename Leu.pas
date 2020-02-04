@@ -29,6 +29,7 @@ type
     procedure MenuNew(Sender: TObject); // New
     procedure MenuLoad(Sender: TObject); // Load
     procedure MenuSave(Sender: TObject); // Save
+    procedure MenuSaveAs(Sender: TObject); // Save As
     procedure MenuSetSize(Sender: TObject); // SetSize
     procedure MenuQuit(Sender: TObject); // Quit
     procedure MenuCopy(Sender: TObject); // Copy
@@ -55,7 +56,6 @@ type
     procedure DblClick(Sender: TObject);
 
     procedure CloseReqEvent(Sender: TObject; var CloseAction: TCloseAction);
-
 
     procedure UpdateTitles;
   public
@@ -155,8 +155,26 @@ begin
   FD.Free;
 end;
 
-// Save the File
 procedure TMyWindow.MenuSave(Sender: TObject);
+begin
+  if SG.FileName = '' then
+    MenuSaveAs(nil)
+  else
+  begin
+    try
+      SG.SaveFile(SG.FileName);
+      UpdateTitles;
+    except
+      on e: Exception do
+      begin
+        ShowMessage('Cannot save file: ' + ExtractFileName(SG.FileName) + #10 + E.Message);
+      end;
+    end;
+  end;
+end;
+
+// Save the File
+procedure TMyWindow.MenuSaveAs(Sender: TObject);
 var
   FD: TFileDialog;
 begin
@@ -594,9 +612,17 @@ begin
 
   with TMUIMenuItem.Create do
   begin
+    Title := 'Save ...';
+    ShortCut := 'W';
+    OnTrigger := @MenuSave;
+    Parent := ProjectMenu;
+  end;
+
+  with TMUIMenuItem.Create do
+  begin
     Title := 'Save As...';
     ShortCut := 'S';
-    OnTrigger := @MenuSave;
+    OnTrigger := @MenuSaveAs;
     Parent := ProjectMenu;
   end;
 
