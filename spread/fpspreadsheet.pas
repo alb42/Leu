@@ -2604,7 +2604,7 @@ begin
     // In addition, there may be column records defining the column width even
     // without cells
     for i:=0 to FCols.Count-1 do
-      if FCols[i] <> nil then
+      if (FCols[i] <> nil) and (PCol(FCols[i])^.Col <> UNASSIGNED_ROW_COL_INDEX) then
         Result := Math.Max(Result, PCol(FCols[i])^.Col);
     // Store the result
     FLastColIndex := Result;
@@ -2705,7 +2705,7 @@ begin
     Result := GetLastOccupiedRowIndex;
     // In addition, there may be row records even for empty rows.
     for i:=0 to FRows.Count-1 do
-      if FRows[i] <> nil then
+      if (FRows[i] <> nil) and (PRow(FRows[i])^.Row <> UNASSIGNED_ROW_COL_INDEX) then
         Result := Math.Max(Result, PRow(FRows[i])^.Row);
     // Store result
     FLastRowIndex := Result;

@@ -515,7 +515,7 @@ procedure TOfficeGrid.SetCellWidth(ACol: Integer; AWidth: Integer);
 var
   lCol: PCol;
 begin
-  lCol := Worksheet.FindCol(ACol - FHeaderCount);
+  lCol := Worksheet.GetCol(ACol - FHeaderCount);
   if lCol = nil then
   begin
     inherited;
@@ -526,6 +526,7 @@ begin
     Exit;
   lCol^.ColWidthType := cwtCustom;
   lCol^.Width := CalcSizeToSheet(AWidth) / 1.2;
+  FChanged := True;
   RecalcSize;
 end;
 
@@ -559,7 +560,7 @@ procedure TOfficeGrid.SetCellHeight(ARow: Integer; AHeight: Integer);
 var
   lRow: PRow;
 begin
-  lRow := Worksheet.FindRow(ARow - FixedRows);
+  lRow := Worksheet.GetRow(ARow - FixedRows);
   if lRow = nil then
   begin
     inherited;
@@ -569,6 +570,7 @@ begin
     Exit;
   lRow^.RowHeightType := rhtCustom;
   lRow^.Height := CalcSizeToSheet(AHeight) / 1.2;
+  FChanged := True;
   RecalcSize;
 end;
 
