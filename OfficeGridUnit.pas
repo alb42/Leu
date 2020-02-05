@@ -69,6 +69,8 @@ type
     procedure CutToClip; override;
     procedure PasteFromClip; override;
 
+    procedure Sort(ARowFrom, AColFrom, ARowTo, AColTo: Integer; ASortParams: TsSortParams);
+
     property ShowHeaders: Boolean read FShowHeaders write FShowHeaders;
     property Worksheet: TsWorksheet read FWorksheet;
     property WorkBook: TsWorkBook read FWorkBook;
@@ -1298,6 +1300,18 @@ begin
   finally
     MS.Free;
   end;
+end;
+
+procedure TOfficeGrid.Sort(ARowFrom, AColFrom, ARowTo, AColTo: Integer; ASortParams: TsSortParams);
+var
+  x, y: Integer;
+begin
+  BeginUpdate;
+  Worksheet.Sort(ASortParams, ARowFrom, AColFrom, ARowTo, AColTo);
+  for y := ARowFrom to ARowTo do
+    for x := AColFrom to AColTo do
+      AddToRedraw(X + 1, Y + 1);
+  EndUpdate;
 end;
 
 initialization

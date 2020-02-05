@@ -18,7 +18,7 @@ uses
   MUIClass.Dialog,
   MUIClass.DrawPanel,
   imagesunit, colorunit, FormatWinUnit,
-  AskTextUnit,
+  AskTextUnit, SortWinUnit,
   fpstypes, fpspreadsheet, fpsutils, fpsnumformat,
   variants, SetSizeUnit;
 
@@ -37,6 +37,7 @@ type
     procedure MenuPaste(Sender: TObject); // Paste
     procedure MenuDelete(Sender: TObject); // Delete
     procedure MenuFormat(Sender: TObject); // Format
+    procedure MenuSort(Sender: TObject); // Sort
     procedure MenuAddSheet(Sender: TObject); // Add Sheet
     procedure MenuRemoveSheet(Sender: TObject); // Remove Sheet
     procedure MenuRenameSheet(Sender: TObject); // Rename Sheet
@@ -271,6 +272,37 @@ begin
     FormatWin.Close;
   FormatWin.SG := SG;
   FormatWin.Execute;
+end;
+
+procedure TMyWindow.MenuSort(Sender: TObject);
+var
+  SortParams:TsSortParams;
+  ARowFrom, AColFrom, ARowTo, AColTo, i: Integer;
+begin
+  Unused(Sender);
+  with SortParams do
+  begin
+    SortByCols := True;
+    Priority := spNumAlpha;
+    SetLength(Keys, 1);
+    Keys[0].ColRowIndex := 3;
+    Keys[0].Options := [ssoDescending, ssoCaseInsensitive];
+  end;
+  ARowFrom := SG.Row;
+  AColFrom := SG.Col;
+  ARowTo := SG.Row;
+  AColTo:= SG.Col;
+  for i := 0 to SG.SelectionCount - 1 do
+  begin
+    AColFrom := Min(AColFrom, SG.Selection[i].X);
+    AColTo := Max(AColTo, SG.Selection[i].X);
+    ARowFrom := Min(ARowFrom, SG.Selection[i].Y);
+    ARowTo := Max(ARowTo, SG.Selection[i].Y);
+  end;
+  if SortWin.Execute(ARowFrom, AColFrom, ARowTo, AColTo) then
+  begin
+    SG.Sort(ARowFrom - 1, AColFrom - 1, ARowTo - 1, AColTo - 1, SortWin.SortParams);
+  end;
 end;
 
 
@@ -569,9 +601,9 @@ begin
   begin
     case MessageBox('Close Leu?', 'File not saved, save before quit?', ['Yes', 'No', 'Cancel']) of
       1: begin MenuSave(nil); CloseAction := caClose; end;
-      3: CloseAction := caClose;
+      3: CloseAction := caNone;
       else
-        CloseAction := caNone;
+        CloseAction := caClose;
     end;
   end;
 end;
@@ -734,6 +766,15 @@ begin
     ShortCut := 'F';
     //CommandString := True;
     OnTrigger := @MenuFormat;
+    Parent := EditMenu;
+  end;
+
+  with TMUIMenuItem.Create do
+  begin
+    Title := 'Sort';
+    //ShortCut := 'F';
+    //CommandString := True;
+    OnTrigger := @MenuSort;
     Parent := EditMenu;
   end;
 
@@ -934,6 +975,7 @@ begin
   SetSizeWin := TSetSizeWin.Create;
   FormatWin := TFormatWin.Create;
   AskTextWin := TAskTextWin.Create;
+  SortWin := TSortWin.Create;
 
   MUIApp.Title := 'LEU';
   MUIApp.Version := '$VER: LEU 0.08 (26.11.2019)';
