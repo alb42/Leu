@@ -9,7 +9,8 @@ uses
   MUIClass.Area,
   MUIClass.Image,
   MUIClass.Group,
-  fpstypes;
+  MUIClass.Dialog,
+  fpstypes, fpsutils;
 
 const
   NUMLINES = 3;
@@ -120,12 +121,19 @@ end;
 
 function TSortWin.Execute(ARowFrom, AColFrom, ARowTo, AColTo: LongInt): Boolean;
 begin
+  Result := False;
+  if (ARowTo = ARowFrom) and (AColTo = AColFrom) then
+  begin
+    ShowMessage('Select range to sort.');
+    Exit;
+  end;
   FOKClicked := False;
   FRowFrom := ARowFRom;
   FColFrom := AColFrom;
   FRowTo := ARowTo;
   FColTo := AColTo;
   SortDirEvent(nil);
+  Title := 'Sort ' + GetColString(FColFrom - 1) + IntToStr(ARowFrom) + ':' + GetColString(FColTo - 1) + IntToStr(ARowTo);
   Show;
   repeat
     MUIApp.InputBuffered;
@@ -182,7 +190,10 @@ begin
     Base := 'Row ';
   for i := 0 to High(Indexe) do
   begin
-    Entries[i + 1] := Base + IntToStr(Indexe[i]);
+    if SortDir.Active = 0 then
+      Entries[i + 1] := Base + GetColString(Indexe[i] - 1)
+    else
+      Entries[i + 1] := Base + IntToStr(Indexe[i]);
   end;
   Cbxs[Index].Entries := Entries;
   Cbxs[Index].OnActiveChange := @SortChanged;
