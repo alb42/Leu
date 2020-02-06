@@ -34,6 +34,7 @@ type
     procedure CancelClicked(Sender: TObject);
     function GetSortParams: TsSortParams;
     procedure SortChanged(Sender: TObject);
+    procedure DeactiveEvent(Sender: TObject);
   public
     constructor Create; override;
     function Execute(ARowFrom, AColFrom, ARowTo, AColTo: LongInt): Boolean;
@@ -52,6 +53,7 @@ var
 begin
   inherited;
   Horizontal := False;
+  OnDeactivate := @DeactiveEvent;
 
   TopGrp := TMUIGroup.Create;
   TopGrp.Horiz := True;
@@ -224,6 +226,11 @@ begin
       Indexe[i - FRowFrom] := i;
   end;
   MakeCBX(0);
+end;
+
+procedure TSortWin.DeactiveEvent(Sender: TObject);
+begin
+  Activate := True;
 end;
 
 procedure TSortWin.OKClicked(Sender: TObject);
