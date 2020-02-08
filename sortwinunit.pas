@@ -95,6 +95,8 @@ begin
     CaseSens[i] := TMUICheckmark.Create;
     CaseSens[i].Selected := False;
     CaseSens[i].Parent := Grps[i];
+
+    TMUIText.Create('Case sensitive').Parent := Grps[i];
   end;
 
   for i := 0 to High(Cbxs) do

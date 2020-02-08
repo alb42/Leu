@@ -20,7 +20,8 @@ uses
   imagesunit, colorunit, FormatWinUnit,
   AskTextUnit, SortWinUnit,
   fpstypes, fpspreadsheet, fpsutils, fpsnumformat,
-  variants, SetSizeUnit;
+  fpssearch,
+  variants, SetSizeUnit, SearchWinUnit;
 
 type
   TMyWindow = class(TMUIWindow)
@@ -38,6 +39,7 @@ type
     procedure MenuDelete(Sender: TObject); // Delete
     procedure MenuFormat(Sender: TObject); // Format
     procedure MenuSort(Sender: TObject); // Sort
+    procedure MenuSearch(Sender: TObject); // Search & Replace
     procedure MenuAddSheet(Sender: TObject); // Add Sheet
     procedure MenuRemoveSheet(Sender: TObject); // Remove Sheet
     procedure MenuRenameSheet(Sender: TObject); // Rename Sheet
@@ -303,6 +305,11 @@ begin
   begin
     SG.Sort(ARowFrom - 1, AColFrom - 1, ARowTo - 1, AColTo - 1, SortWin.SortParams);
   end;
+end;
+
+procedure TMyWindow.MenuSearch(Sender: TObject);
+begin
+  SearchWin.Execute(SG);
 end;
 
 
@@ -778,6 +785,15 @@ begin
     Parent := EditMenu;
   end;
 
+  with TMUIMenuItem.Create do
+  begin
+    Title := 'Search & Replace';
+    //ShortCut := 'F';
+    //CommandString := True;
+    OnTrigger := @MenuSearch;
+    Parent := EditMenu;
+  end;
+
   //
 
   HeadGroup := TMUIGroup.Create;
@@ -1020,6 +1036,7 @@ begin
   FormatWin := TFormatWin.Create;
   AskTextWin := TAskTextWin.Create;
   SortWin := TSortWin.Create;
+  SearchWin := TSearchWin.Create;
 
   MUIApp.Title := 'LEU';
   MUIApp.Version := '$VER: LEU 0.08 (26.11.2019)';

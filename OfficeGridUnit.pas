@@ -9,11 +9,13 @@ uses
   MUIClass.Base,
   MUIClass.Grid,
   MUIClass.Dialog,
-  fpstypes, fpspreadsheet, fpsallformats, fpsutils, fpsnumformat, variants;
+  fpstypes, fpspreadsheet, fpsallformats, fpsutils, fpsnumformat,
+  fpssearch, variants;
 
 type
   TOfficeGrid = class(TMUIStrGrid)
   private
+    FSearch: TsSearchEngine;
     FWorkbook: TsWorkbook;
     FWorksheet: TsWorksheet;
     FShowHeaders: Boolean;
@@ -88,6 +90,7 @@ type
     procedure SetCellBorders(ALeft, ATop, ARight, ABottom: Integer; AValue: TsCellBorders);
 
     property Changed: Boolean read FChanged write FChanged;
+    property Search: TsSearchEngine read FSearch;
   end;
 
 function DrawBorder2CellBorder(c: TDrawBorders): TsCellBorders;
@@ -151,6 +154,7 @@ begin
   NumRows := 0;
   NumCols := 0;
   FWorkbook.Free;
+  FSearch.Free;
   FFilename := '';
   FWorkbook := TsWorkbook.Create;
   FWorkbook.Options := FWorkbook.Options + [boAutoCalc];
@@ -161,6 +165,7 @@ begin
   LoadWorksheet(-1); // load first Worksheet
   NumRows := ANumRows;
   NumCols := ANumCols;
+  FSearch := TsSearchEngine.Create(FWorkbook);
   RecalcSize;
   EndUpdate;
   ExitChange;
