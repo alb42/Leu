@@ -152,6 +152,7 @@ var
 begin
   if Sender is TMUICycle then
   begin
+    InitChange;
     Num := TMUICycle(Sender).Tag;
     if (Num < 0) or (Num > High(Grps)) then
       Exit;
@@ -169,7 +170,7 @@ begin
         Grps[Num + 1].ShowMe := True;
       end;
     end;
-
+    ExitChange;
   end;
 end;
 
