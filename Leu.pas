@@ -770,7 +770,7 @@ begin
   with TMUIMenuItem.Create do
   begin
     Title := 'Format';
-    ShortCut := 'F';
+    ShortCut := 'K';
     //CommandString := True;
     OnTrigger := @MenuFormat;
     Parent := EditMenu;
@@ -779,7 +779,7 @@ begin
   with TMUIMenuItem.Create do
   begin
     Title := 'Sort';
-    //ShortCut := 'F';
+    ShortCut := 'J';
     //CommandString := True;
     OnTrigger := @MenuSort;
     Parent := EditMenu;
@@ -788,7 +788,7 @@ begin
   with TMUIMenuItem.Create do
   begin
     Title := 'Search & Replace';
-    //ShortCut := 'F';
+    ShortCut := 'F';
     //CommandString := True;
     OnTrigger := @MenuSearch;
     Parent := EditMenu;
@@ -973,8 +973,6 @@ begin
 end;
 
 {$ifdef AMIGA68k}
-const
-  AFF_68080 = 1 shl 10;
 procedure TestVampire;
 var
   a: Double;
@@ -986,49 +984,11 @@ begin
     halt(5);
   end;
 end;
-
-function CheckAllowed: Boolean;
-var
-  Info: TSearchRec;
-  s1,s3,s2: string;
-begin
-  // Check for AmiKit
-  Result := False;
-  // AROS = Execbase >= 51
-  if PExecBase(AOS_ExecBase)^.LibNode.lib_Version >= 51 then
-  begin
-    Result := True;
-    Exit;
-  end;
-  // AmiKit check
-  if FindFirst ('ENV:*', faAnyFile, Info) = 0 then
-  begin
-    repeat
-      s1 := Copy(Info.Name, 1, 3); // Ami
-      s3 := Copy(Info.Name, 7, Length(Info.Name)); // Version
-      s2 := Copy(Info.Name, 4, 3); // Kit
-      if (s3 = 'Version') and (s1 = 'Ami') then
-      begin
-        if s2 = 'Kit' then
-        begin
-          Result := True;
-          Exit;
-        end;
-      end;
-    until FindNext(info) <> 0;
-  end;
-  FindClose(Info);
-end;
 {$endif}
 procedure StartMe;
 begin
   {$ifdef AMIGA68k}
   TestVampire;
-  if ((PExecBase(AOS_ExecBase)^.AttnFlags and AFF_68080) <> 0) and (not CheckAllowed) then
-  begin
-    Writeln('Anti-Coffin copy-protection, blocking Vampire.');
-    halt(0);
-  end;
   {$endif}
   // Create a Window, with a title bar text
   Win := TMyWindow.Create;

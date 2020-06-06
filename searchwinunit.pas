@@ -61,6 +61,7 @@ begin
   Grp.Parent := Self;
 
   FSearchString := TMUIString.Create;
+  FSearchString.CycleChain := 1;
   FSearchString.Parent := Grp;
 
   // Replace
@@ -76,10 +77,12 @@ begin
   Grp2.Parent := Grp;
 
   FReplaceCheck := TMUICheckMark.Create;
+  FReplaceCheck.CycleChain := 2;
   FReplaceCheck.OnSelected := @SelectedEvent;
   FReplaceCheck.Parent := Grp2;
 
   FReplaceString := TMUIString.Create;
+  FReplaceString.CycleChain := 3;
   FReplaceString.Disabled := True;
   FReplaceString.Parent := Grp2;
 
@@ -156,6 +159,7 @@ begin
   SG := ASG;
   SG.Search.OnConfirmReplacement := @ConfirmEvent;
   Show;
+  ActiveObject := FSearchString;
 end;
 
 procedure TSearchWin.FindEvent(Sender: TObject);
